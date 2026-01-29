@@ -323,7 +323,7 @@ export function calculatePeriodAdjustment(
   periodStart: Date,
   periodEnd: Date,
   effectiveChangeDate: Date,
-  currentDate: Date,
+  _currentDate: Date,
   oldPlan: Plan,
   newPlan: Plan,
   periodNumber: number
@@ -331,23 +331,18 @@ export function calculatePeriodAdjustment(
   const daysInPeriod = calculateDaysInPeriod(periodStart, periodEnd);
 
   // Determine the affected portion of this period
+  // For advance billing, the full period is affected once it's included (customer already paid for it)
   const effectiveStart = isAfter(effectiveChangeDate, periodStart) ? effectiveChangeDate : periodStart;
-  const effectiveEnd = isBefore(currentDate, periodEnd) ? currentDate : periodEnd;
+  const effectiveEnd = periodEnd; // Always go to period end for advance billing
 
   const daysAffected = Math.max(0, differenceInDays(effectiveEnd, effectiveStart));
   const isPartialPeriod = daysAffected < daysInPeriod;
 
   // Determine where the unaffected portion falls
+  // For advance billing, partial periods only occur at the start (first period with effectiveChangeDate mid-period)
   let partialPosition: 'start' | 'end' | 'none' = 'none';
-  if (isPartialPeriod) {
-    // If effective change date is after period start, unaffected days are at the start (first period)
-    if (isAfter(effectiveChangeDate, periodStart)) {
-      partialPosition = 'start';
-    }
-    // If current date is before period end, unaffected days are at the end (last period)
-    else if (isBefore(currentDate, periodEnd)) {
-      partialPosition = 'end';
-    }
+  if (isPartialPeriod && isAfter(effectiveChangeDate, periodStart)) {
+    partialPosition = 'start';
   }
 
   // Calculate daily rates
