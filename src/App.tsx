@@ -15,8 +15,11 @@ function App() {
     newPlan,
     prorationResult,
     planChangeResult,
+    multiPeriodResult,
     invoice,
     validationErrors,
+    effectiveChangeDate,
+    billingAnchorDay,
     updateBillingCycle,
     updatePeriodStart,
     updateServiceStart,
@@ -26,6 +29,8 @@ function App() {
     updateNewPlanPrice,
     updatePlanName,
     updateNewPlanName,
+    updateEffectiveChangeDate,
+    updateBillingAnchorDay,
   } = useProration();
 
   return (
@@ -69,6 +74,8 @@ function App() {
               newPlanPrice={newPlan.price}
               periodEnd={periodEnd}
               validationErrors={validationErrors}
+              effectiveChangeDate={effectiveChangeDate}
+              billingAnchorDay={billingAnchorDay}
               onCalculationTypeChange={updateCalculationType}
               onPeriodStartChange={updatePeriodStart}
               onServiceStartChange={updateServiceStart}
@@ -78,6 +85,8 @@ function App() {
               onChangeDateChange={updateChangeDate}
               onNewPlanNameChange={updateNewPlanName}
               onNewPlanPriceChange={updateNewPlanPrice}
+              onEffectiveChangeDateChange={updateEffectiveChangeDate}
+              onBillingAnchorDayChange={updateBillingAnchorDay}
             />
           </div>
 
@@ -90,9 +99,12 @@ function App() {
               changeDate={changeDate}
               prorationResult={prorationResult}
               planChangeResult={planChangeResult}
+              multiPeriodResult={multiPeriodResult}
               calculationType={calculationType}
               planPrice={plan.price}
               newPlanPrice={newPlan.price}
+              plan={plan}
+              newPlan={newPlan}
             />
 
             <InvoicePreview invoice={invoice} />
@@ -100,7 +112,7 @@ function App() {
         </div>
 
         {/* Calculation Details */}
-        {(prorationResult || planChangeResult) && (
+        {(prorationResult || planChangeResult || multiPeriodResult) && (
           <div className="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Calculation Breakdown</h3>
 
@@ -183,6 +195,49 @@ function App() {
                   </div>
                   <div className={`text-xs mt-1 ${planChangeResult.netAmount >= 0 ? 'text-gray-400' : 'text-green-400'}`}>
                     {planChangeResult.isUpgrade ? 'upgrade charge' : 'downgrade credit'}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {calculationType === 'multiPeriod' && multiPeriodResult && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">Periods Affected</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {multiPeriodResult.totalPeriodsAffected}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    billing periods
+                  </div>
+                </div>
+                <div className="p-4 bg-amber-50 rounded-lg">
+                  <div className="text-sm text-amber-600 mb-1">Total Credits</div>
+                  <div className="text-xl font-semibold text-amber-700">
+                    ${multiPeriodResult.totalCredits.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-amber-400 mt-1">
+                    from {plan.name}
+                  </div>
+                </div>
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <div className="text-sm text-blue-600 mb-1">Total Charges</div>
+                  <div className="text-xl font-semibold text-blue-700">
+                    ${multiPeriodResult.totalCharges.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-blue-400 mt-1">
+                    for {newPlan.name}
+                  </div>
+                </div>
+                <div className={`p-4 rounded-lg ${multiPeriodResult.netAdjustment >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                  <div className={`text-sm mb-1 ${multiPeriodResult.netAdjustment >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {multiPeriodResult.netAdjustment >= 0 ? 'Net Amount Due' : 'Net Refund Due'}
+                  </div>
+                  <div className={`text-xl font-semibold ${multiPeriodResult.netAdjustment >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    ${Math.abs(multiPeriodResult.netAdjustment).toFixed(2)}
+                  </div>
+                  <div className={`text-xs mt-1 ${multiPeriodResult.netAdjustment >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {multiPeriodResult.isUpgrade ? 'retroactive upgrade' : 'retroactive downgrade'}
                   </div>
                 </div>
               </div>

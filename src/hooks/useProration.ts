@@ -1,11 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, getDate } from 'date-fns';
 import type {
   BillingCycle,
   Plan,
   ProrationResult,
   PlanChangeResult,
   Invoice,
+  MultiPeriodResult,
 } from '../types/billing';
 import {
   calculatePeriodEnd,
@@ -14,9 +15,12 @@ import {
   generateLateStartInvoice,
   generatePlanChangeInvoice,
   validateDates,
+  calculateMultiPeriodAdjustment,
+  generateMultiPeriodInvoice,
+  validateMultiPeriodInput,
 } from '../utils/proration';
 
-export type CalculationType = 'lateStart' | 'planChange';
+export type CalculationType = 'lateStart' | 'planChange' | 'multiPeriod';
 
 interface UseProrationState {
   calculationType: CalculationType;
@@ -27,6 +31,8 @@ interface UseProrationState {
   plan: Plan;
   changeDate: Date;
   newPlan: Plan;
+  effectiveChangeDate: Date;
+  billingAnchorDay: number;
 }
 
 const DEFAULT_PLANS: Plan[] = [
@@ -38,6 +44,7 @@ const DEFAULT_PLANS: Plan[] = [
 export function useProration() {
   const today = new Date();
   const defaultPeriodStart = startOfMonth(today);
+  const defaultEffectiveChangeDate = subMonths(today, 2);
 
   const [state, setState] = useState<UseProrationState>({
     calculationType: 'lateStart',
@@ -45,9 +52,11 @@ export function useProration() {
     periodEnd: endOfMonth(defaultPeriodStart),
     serviceStart: today,
     billingCycle: 'monthly',
-    plan: DEFAULT_PLANS[1],
+    plan: DEFAULT_PLANS[0],
     changeDate: today,
-    newPlan: DEFAULT_PLANS[2],
+    newPlan: DEFAULT_PLANS[1],
+    effectiveChangeDate: defaultEffectiveChangeDate,
+    billingAnchorDay: getDate(defaultPeriodStart),
   });
 
   // Update period end when billing cycle or period start changes
@@ -119,6 +128,14 @@ export function useProration() {
     }));
   }, []);
 
+  const updateEffectiveChangeDate = useCallback((date: Date) => {
+    setState(prev => ({ ...prev, effectiveChangeDate: date }));
+  }, []);
+
+  const updateBillingAnchorDay = useCallback((day: number) => {
+    setState(prev => ({ ...prev, billingAnchorDay: day }));
+  }, []);
+
   // Validate dates
   const validationErrors = useMemo(() => {
     if (state.calculationType === 'lateStart') {
@@ -128,13 +145,22 @@ export function useProration() {
         serviceStart: state.serviceStart,
         plan: state.plan,
       });
-    } else {
+    } else if (state.calculationType === 'planChange') {
       return validateDates({
         periodStart: state.periodStart,
         periodEnd: state.periodEnd,
         serviceStart: state.periodStart,
         plan: state.plan,
         changeDate: state.changeDate,
+        newPlan: state.newPlan,
+      });
+    } else {
+      return validateMultiPeriodInput({
+        effectiveChangeDate: state.effectiveChangeDate,
+        currentDate: new Date(),
+        billingCycle: state.billingCycle,
+        billingAnchorDay: state.billingAnchorDay,
+        oldPlan: state.plan,
         newPlan: state.newPlan,
       });
     }
@@ -171,6 +197,23 @@ export function useProration() {
     return null;
   }, [state, validationErrors]);
 
+  // Calculate multi-period result
+  const multiPeriodResult: MultiPeriodResult | null = useMemo(() => {
+    if (validationErrors.length > 0) return null;
+
+    if (state.calculationType === 'multiPeriod') {
+      return calculateMultiPeriodAdjustment({
+        effectiveChangeDate: state.effectiveChangeDate,
+        currentDate: new Date(),
+        billingCycle: state.billingCycle,
+        billingAnchorDay: state.billingAnchorDay,
+        oldPlan: state.plan,
+        newPlan: state.newPlan,
+      });
+    }
+    return null;
+  }, [state, validationErrors]);
+
   // Generate invoice
   const invoice: Invoice | null = useMemo(() => {
     if (validationErrors.length > 0) return null;
@@ -194,14 +237,27 @@ export function useProration() {
         state.newPlan,
         planChangeResult
       );
+    } else if (state.calculationType === 'multiPeriod' && multiPeriodResult) {
+      return generateMultiPeriodInvoice(
+        {
+          effectiveChangeDate: state.effectiveChangeDate,
+          currentDate: new Date(),
+          billingCycle: state.billingCycle,
+          billingAnchorDay: state.billingAnchorDay,
+          oldPlan: state.plan,
+          newPlan: state.newPlan,
+        },
+        multiPeriodResult
+      );
     }
     return null;
-  }, [state, prorationResult, planChangeResult, validationErrors]);
+  }, [state, prorationResult, planChangeResult, multiPeriodResult, validationErrors]);
 
   return {
     ...state,
     prorationResult,
     planChangeResult,
+    multiPeriodResult,
     invoice,
     validationErrors,
     availablePlans: DEFAULT_PLANS,
@@ -216,5 +272,7 @@ export function useProration() {
     updateNewPlanPrice,
     updatePlanName,
     updateNewPlanName,
+    updateEffectiveChangeDate,
+    updateBillingAnchorDay,
   };
 }

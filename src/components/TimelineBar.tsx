@@ -1,6 +1,7 @@
 import { format, differenceInDays } from 'date-fns';
 import { formatCurrency } from '../utils/proration';
-import type { ProrationResult, PlanChangeResult } from '../types/billing';
+import type { ProrationResult, PlanChangeResult, MultiPeriodResult, Plan } from '../types/billing';
+import { MultiPeriodTimeline } from './MultiPeriodTimeline';
 
 interface TimelineBarProps {
   periodStart: Date;
@@ -9,9 +10,12 @@ interface TimelineBarProps {
   changeDate?: Date;
   prorationResult?: ProrationResult | null;
   planChangeResult?: PlanChangeResult | null;
-  calculationType: 'lateStart' | 'planChange';
+  multiPeriodResult?: MultiPeriodResult | null;
+  calculationType: 'lateStart' | 'planChange' | 'multiPeriod';
   planPrice: number;
   newPlanPrice?: number;
+  plan?: Plan;
+  newPlan?: Plan;
 }
 
 export function TimelineBar({
@@ -21,10 +25,24 @@ export function TimelineBar({
   changeDate,
   prorationResult,
   planChangeResult,
+  multiPeriodResult,
   calculationType,
   planPrice,
   newPlanPrice,
+  plan,
+  newPlan,
 }: TimelineBarProps) {
+  // Handle multi-period mode
+  if (calculationType === 'multiPeriod' && multiPeriodResult && plan && newPlan) {
+    return (
+      <MultiPeriodTimeline
+        multiPeriodResult={multiPeriodResult}
+        oldPlan={plan}
+        newPlan={newPlan}
+      />
+    );
+  }
+
   const totalDays = differenceInDays(periodEnd, periodStart);
 
   if (calculationType === 'lateStart' && serviceStart && prorationResult) {
