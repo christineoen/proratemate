@@ -4,6 +4,7 @@ import {
   startOfDay,
   isAfter,
   isBefore,
+  getDaysInMonth,
 } from 'date-fns';
 import type {
   BillingCycle,
@@ -13,6 +14,9 @@ import type {
   PlanChangeResult,
   InvoiceLine,
   Invoice,
+  MultiPeriodInput,
+  MultiPeriodResult,
+  PeriodAdjustment,
 } from '../types/billing';
 import { CYCLE_MONTHS } from '../types/billing';
 
@@ -246,6 +250,236 @@ export function validateDates(input: ProrationInput): string[] {
     if (isAfter(input.changeDate, input.periodEnd)) {
       errors.push('Change date must be before period end date');
     }
+  }
+
+  return errors;
+}
+
+/**
+ * Get the billing anchor date for a given month, handling months with fewer days
+ */
+function getBillingAnchorDate(year: number, month: number, anchorDay: number): Date {
+  const daysInMonth = getDaysInMonth(new Date(year, month, 1));
+  const actualDay = Math.min(anchorDay, daysInMonth);
+  return startOfDay(new Date(year, month, actualDay));
+}
+
+/**
+ * Generate all billing periods between effective change date and current date
+ */
+export function generateBillingPeriods(
+  effectiveChangeDate: Date,
+  currentDate: Date,
+  billingCycle: BillingCycle,
+  billingAnchorDay: number
+): { periodStart: Date; periodEnd: Date }[] {
+  const periods: { periodStart: Date; periodEnd: Date }[] = [];
+  const cycleMonths = CYCLE_MONTHS[billingCycle];
+
+  // Find the billing period that contains the effective change date
+  const effectiveYear = effectiveChangeDate.getFullYear();
+  const effectiveMonth = effectiveChangeDate.getMonth();
+
+  // Start from a period that definitely contains or precedes the effective date
+  let searchYear = effectiveYear;
+  let searchMonth = effectiveMonth;
+
+  // Find the period start that's on or before the effective date
+  let periodStart = getBillingAnchorDate(searchYear, searchMonth, billingAnchorDay);
+
+  // If period start is after effective date, go back one cycle
+  while (isAfter(periodStart, effectiveChangeDate)) {
+    searchMonth -= cycleMonths;
+    if (searchMonth < 0) {
+      searchYear -= 1;
+      searchMonth += 12;
+    }
+    periodStart = getBillingAnchorDate(searchYear, searchMonth, billingAnchorDay);
+  }
+
+  // Now iterate forward from this period
+  while (isBefore(periodStart, currentDate) || periodStart.getTime() === currentDate.getTime()) {
+    const periodEnd = calculatePeriodEnd(periodStart, billingCycle);
+
+    // Only include periods that overlap with the affected range
+    if (isAfter(periodEnd, effectiveChangeDate) || periodEnd.getTime() === effectiveChangeDate.getTime()) {
+      periods.push({ periodStart, periodEnd });
+    }
+
+    // Move to next period
+    periodStart = periodEnd;
+
+    // Safety check to prevent infinite loops
+    if (periods.length > 100) break;
+  }
+
+  return periods;
+}
+
+/**
+ * Calculate adjustment for a single billing period
+ */
+export function calculatePeriodAdjustment(
+  periodStart: Date,
+  periodEnd: Date,
+  effectiveChangeDate: Date,
+  currentDate: Date,
+  oldPlan: Plan,
+  newPlan: Plan,
+  periodNumber: number
+): PeriodAdjustment {
+  const daysInPeriod = calculateDaysInPeriod(periodStart, periodEnd);
+
+  // Determine the affected portion of this period
+  const effectiveStart = isAfter(effectiveChangeDate, periodStart) ? effectiveChangeDate : periodStart;
+  const effectiveEnd = isBefore(currentDate, periodEnd) ? currentDate : periodEnd;
+
+  const daysAffected = Math.max(0, differenceInDays(effectiveEnd, effectiveStart));
+  const isPartialPeriod = daysAffected < daysInPeriod;
+
+  // Determine where the unaffected portion falls
+  let partialPosition: 'start' | 'end' | 'none' = 'none';
+  if (isPartialPeriod) {
+    // If effective change date is after period start, unaffected days are at the start (first period)
+    if (isAfter(effectiveChangeDate, periodStart)) {
+      partialPosition = 'start';
+    }
+    // If current date is before period end, unaffected days are at the end (last period)
+    else if (isBefore(currentDate, periodEnd)) {
+      partialPosition = 'end';
+    }
+  }
+
+  // Calculate daily rates
+  const oldDailyRate = calculateDailyRate(oldPlan.price, daysInPeriod);
+  const newDailyRate = calculateDailyRate(newPlan.price, daysInPeriod);
+
+  // Old plan: what was charged for the affected days
+  const oldPlanCharge = Math.round(oldDailyRate * daysAffected * 100) / 100;
+
+  // Credit from old plan (the amount they paid but shouldn't have)
+  const creditFromOldPlan = oldPlanCharge;
+
+  // New plan: what should have been charged for the affected days
+  const chargeForNewPlan = Math.round(newDailyRate * daysAffected * 100) / 100;
+
+  // Net adjustment for this period (positive = customer owes, negative = refund)
+  const netAdjustment = Math.round((chargeForNewPlan - creditFromOldPlan) * 100) / 100;
+
+  return {
+    periodNumber,
+    periodStart,
+    periodEnd,
+    isPartialPeriod,
+    partialPosition,
+    daysInPeriod,
+    daysAffected,
+    oldPlanCharge,
+    creditFromOldPlan,
+    chargeForNewPlan,
+    netAdjustment,
+  };
+}
+
+/**
+ * Main multi-period adjustment calculation
+ */
+export function calculateMultiPeriodAdjustment(input: MultiPeriodInput): MultiPeriodResult {
+  const { effectiveChangeDate, currentDate, billingCycle, billingAnchorDay, oldPlan, newPlan } = input;
+
+  const billingPeriods = generateBillingPeriods(
+    effectiveChangeDate,
+    currentDate,
+    billingCycle,
+    billingAnchorDay
+  );
+
+  const periods: PeriodAdjustment[] = billingPeriods.map((period, index) =>
+    calculatePeriodAdjustment(
+      period.periodStart,
+      period.periodEnd,
+      effectiveChangeDate,
+      currentDate,
+      oldPlan,
+      newPlan,
+      index + 1
+    )
+  );
+
+  const totalCredits = periods.reduce((sum, p) => sum + p.creditFromOldPlan, 0);
+  const totalCharges = periods.reduce((sum, p) => sum + p.chargeForNewPlan, 0);
+  const netAdjustment = Math.round((totalCharges - totalCredits) * 100) / 100;
+
+  return {
+    periods,
+    totalPeriodsAffected: periods.length,
+    totalCredits: Math.round(totalCredits * 100) / 100,
+    totalCharges: Math.round(totalCharges * 100) / 100,
+    netAdjustment,
+    isUpgrade: newPlan.price > oldPlan.price,
+  };
+}
+
+/**
+ * Generate invoice with per-period line items for multi-period adjustment
+ */
+export function generateMultiPeriodInvoice(
+  input: MultiPeriodInput,
+  result: MultiPeriodResult
+): Invoice {
+  const lines: InvoiceLine[] = [];
+
+  // Add line items for each period
+  result.periods.forEach((period) => {
+    // Credit line for old plan
+    lines.push({
+      description: `${input.oldPlan.name} - Credit for Period ${period.periodNumber} (${period.daysAffected} days)`,
+      quantity: 1,
+      unitPrice: -period.creditFromOldPlan,
+      amount: -period.creditFromOldPlan,
+      isCredit: true,
+    });
+
+    // Charge line for new plan
+    lines.push({
+      description: `${input.newPlan.name} - Charge for Period ${period.periodNumber} (${period.daysAffected} days)`,
+      quantity: 1,
+      unitPrice: period.chargeForNewPlan,
+      amount: period.chargeForNewPlan,
+      isCredit: false,
+    });
+  });
+
+  return {
+    lines,
+    subtotal: result.totalCharges,
+    credits: result.totalCredits,
+    total: result.netAdjustment,
+    periodStart: result.periods[0]?.periodStart || input.effectiveChangeDate,
+    periodEnd: result.periods[result.periods.length - 1]?.periodEnd || input.currentDate,
+  };
+}
+
+/**
+ * Validate multi-period input
+ */
+export function validateMultiPeriodInput(input: MultiPeriodInput): string[] {
+  const errors: string[] = [];
+
+  if (isAfter(input.effectiveChangeDate, input.currentDate)) {
+    errors.push('Effective change date must be before or equal to current date');
+  }
+
+  if (input.billingAnchorDay < 1 || input.billingAnchorDay > 28) {
+    errors.push('Billing anchor day must be between 1 and 28');
+  }
+
+  if (input.oldPlan.price < 0) {
+    errors.push('Old plan price must be non-negative');
+  }
+
+  if (input.newPlan.price < 0) {
+    errors.push('New plan price must be non-negative');
   }
 
   return errors;

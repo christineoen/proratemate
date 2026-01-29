@@ -65,3 +65,35 @@ export const CYCLE_LABELS: Record<BillingCycle, string> = {
   semiannual: 'Semi-Annual',
   annual: 'Annual',
 };
+
+export interface PeriodAdjustment {
+  periodNumber: number;
+  periodStart: Date;
+  periodEnd: Date;
+  isPartialPeriod: boolean;
+  partialPosition: 'start' | 'end' | 'none'; // where unaffected days are: 'start' = first period, 'end' = last period
+  daysInPeriod: number;
+  daysAffected: number;
+  oldPlanCharge: number;
+  creditFromOldPlan: number;
+  chargeForNewPlan: number;
+  netAdjustment: number;
+}
+
+export interface MultiPeriodInput {
+  effectiveChangeDate: Date;
+  currentDate: Date;
+  billingCycle: BillingCycle;
+  billingAnchorDay: number;
+  oldPlan: Plan;
+  newPlan: Plan;
+}
+
+export interface MultiPeriodResult {
+  periods: PeriodAdjustment[];
+  totalPeriodsAffected: number;
+  totalCredits: number;
+  totalCharges: number;
+  netAdjustment: number;
+  isUpgrade: boolean;
+}
