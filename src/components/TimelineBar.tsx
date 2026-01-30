@@ -50,8 +50,9 @@ export function TimelineBar({
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Service Cancellation Timeline</h3>
 
-        {/* Plan Line */}
-        <div className="mb-4">
+        {/* Plan Lines */}
+        <div className="mb-4 space-y-2">
+          {/* Active Service Line */}
           <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-amber-500"></div>
@@ -60,7 +61,24 @@ export function TimelineBar({
                 <span className="text-amber-600 text-sm ml-2">
                   {format(periodStart, 'MMM d')} - {format(changeDate, 'MMM d, yyyy')}
                 </span>
-                <span className="text-amber-500 text-sm ml-2">({serviceEndResult.daysUsed} days used)</span>
+                <span className="text-amber-500 text-sm ml-2">({serviceEndResult.daysUsed} days)</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-amber-600">Used</div>
+            </div>
+          </div>
+
+          {/* Credit Line */}
+          <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <div>
+                <span className="font-medium text-green-700">Unused Portion</span>
+                <span className="text-green-600 text-sm ml-2">
+                  {format(changeDate, 'MMM d')} - {format(periodEnd, 'MMM d, yyyy')}
+                </span>
+                <span className="text-green-500 text-sm ml-2">({serviceEndResult.daysRemaining} days)</span>
               </div>
             </div>
             <div className="text-right">
@@ -80,7 +98,7 @@ export function TimelineBar({
               {activePercentage > 15 && `${serviceEndResult.daysUsed} days`}
             </div>
             <div
-              className="bg-gradient-to-r from-gray-300 to-gray-400 flex items-center justify-center text-xs font-medium text-white"
+              className="bg-gradient-to-r from-green-400 to-green-500 flex items-center justify-center text-xs font-medium text-white"
               style={{ width: `${canceledPercentage}%` }}
             >
               {canceledPercentage > 15 && `${serviceEndResult.daysRemaining} days`}
