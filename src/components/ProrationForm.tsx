@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { BillingCycle, ProrationScenario } from '../types/billing';
 import { CYCLE_LABELS } from '../types/billing';
 import { DateRangePicker } from './DateRangePicker';
@@ -15,6 +14,8 @@ interface ProrationFormProps {
   billingAnchorDay: number;
   isMultiPeriod: boolean;
   scenario: ProrationScenario;
+  showPreviousPlan: boolean;
+  showNextPlan: boolean;
   onPeriodStartChange: (date: Date) => void;
   onBillingCycleChange: (cycle: BillingCycle) => void;
   onPlanNameChange: (name: string) => void;
@@ -23,6 +24,8 @@ interface ProrationFormProps {
   onNewPlanNameChange: (name: string) => void;
   onNewPlanPriceChange: (price: number) => void;
   onBillingAnchorDayChange: (day: number) => void;
+  onShowPreviousPlanChange: (show: boolean) => void;
+  onShowNextPlanChange: (show: boolean) => void;
 }
 
 function getDateLabel(scenario: ProrationScenario): string {
@@ -66,6 +69,8 @@ export function ProrationForm({
   billingAnchorDay,
   isMultiPeriod,
   scenario,
+  showPreviousPlan,
+  showNextPlan,
   onPeriodStartChange,
   onBillingCycleChange,
   onPlanNameChange,
@@ -74,43 +79,33 @@ export function ProrationForm({
   onNewPlanNameChange,
   onNewPlanPriceChange,
   onBillingAnchorDayChange,
+  onShowPreviousPlanChange,
+  onShowNextPlanChange,
 }: ProrationFormProps) {
-  // Track whether each plan section is shown
-  const hasPreviousPlan = planName.trim() !== '' || planPrice > 0;
-  const hasNextPlan = newPlanName.trim() !== '' || newPlanPrice > 0;
-
-  const [showPreviousPlan, setShowPreviousPlan] = useState(hasPreviousPlan);
-  const [showNextPlan, setShowNextPlan] = useState(hasNextPlan);
-
   const handleRemovePreviousPlan = () => {
     onPlanNameChange('');
     onPlanPriceChange(0);
-    setShowPreviousPlan(false);
+    onShowPreviousPlanChange(false);
   };
 
   const handleRemoveNextPlan = () => {
     onNewPlanNameChange('');
     onNewPlanPriceChange(0);
-    setShowNextPlan(false);
+    onShowNextPlanChange(false);
   };
 
   const handleAddPreviousPlan = () => {
-    setShowPreviousPlan(true);
+    onShowPreviousPlanChange(true);
   };
 
   const handleAddNextPlan = () => {
-    setShowNextPlan(true);
+    onShowNextPlanChange(true);
   };
 
   // Determine date label based on which plan sections are visible
-  const getVisibilityBasedDateLabel = (): string => {
-    if (showPreviousPlan && showNextPlan) {
-      return 'Effective Date';
-    }
-    return getDateLabel(scenario);
-  };
-
-  const dateLabel = getVisibilityBasedDateLabel();
+  const dateLabel = showPreviousPlan && showNextPlan
+    ? 'Effective Date'
+    : getDateLabel(scenario);
 
   return (
     <div className="space-y-4">

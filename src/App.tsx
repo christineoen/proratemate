@@ -13,6 +13,8 @@ function App() {
     newPlan,
     scenario,
     isMultiPeriod,
+    showPreviousPlan,
+    showNextPlan,
     serviceEndResult,
     serviceStartResult,
     planChangeResult,
@@ -28,6 +30,8 @@ function App() {
     updatePlanName,
     updateNewPlanName,
     updateBillingAnchorDay,
+    setShowPreviousPlan,
+    setShowNextPlan,
   } = useProration();
 
   return (
@@ -60,6 +64,8 @@ function App() {
             billingAnchorDay={billingAnchorDay}
             isMultiPeriod={isMultiPeriod}
             scenario={scenario}
+            showPreviousPlan={showPreviousPlan}
+            showNextPlan={showNextPlan}
             onPeriodStartChange={updatePeriodStart}
             onBillingCycleChange={updateBillingCycle}
             onPlanNameChange={updatePlanName}
@@ -68,6 +74,8 @@ function App() {
             onNewPlanNameChange={updateNewPlanName}
             onNewPlanPriceChange={updateNewPlanPrice}
             onBillingAnchorDayChange={updateBillingAnchorDay}
+            onShowPreviousPlanChange={setShowPreviousPlan}
+            onShowNextPlanChange={setShowNextPlan}
           />
         </div>
 

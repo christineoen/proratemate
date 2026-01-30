@@ -35,17 +35,10 @@ interface UseProrationState {
 const DEFAULT_CURRENT_PLAN: Plan = { name: 'Basic', price: 29, cycle: 'monthly' };
 const DEFAULT_NEW_PLAN: Plan = { name: 'Pro', price: 99, cycle: 'monthly' };
 
-function hasPlan(plan: Plan): boolean {
-  return plan.name.trim() !== '' && plan.price > 0;
-}
-
-function detectScenario(currentPlan: Plan, newPlan: Plan): ProrationScenario {
-  const hasCurrentPlan = hasPlan(currentPlan);
-  const hasNewPlan = hasPlan(newPlan);
-
-  if (hasCurrentPlan && hasNewPlan) return 'planChange';
-  if (hasCurrentPlan && !hasNewPlan) return 'serviceEnd';
-  if (!hasCurrentPlan && hasNewPlan) return 'serviceStart';
+function detectScenario(showPreviousPlan: boolean, showNextPlan: boolean): ProrationScenario {
+  if (showPreviousPlan && showNextPlan) return 'planChange';
+  if (showPreviousPlan && !showNextPlan) return 'serviceEnd';
+  if (!showPreviousPlan && showNextPlan) return 'serviceStart';
   return 'none';
 }
 
@@ -63,10 +56,14 @@ export function useProration() {
     billingAnchorDay: getDate(defaultPeriodStart),
   });
 
-  // Detect scenario based on which plans have data
+  // Track visibility of plan sections
+  const [showPreviousPlan, setShowPreviousPlan] = useState(true);
+  const [showNextPlan, setShowNextPlan] = useState(true);
+
+  // Detect scenario based on which plan sections are visible
   const scenario = useMemo<ProrationScenario>(() => {
-    return detectScenario(state.plan, state.newPlan);
-  }, [state.plan, state.newPlan]);
+    return detectScenario(showPreviousPlan, showNextPlan);
+  }, [showPreviousPlan, showNextPlan]);
 
   // Determine if this is a multi-period scenario (plan change date is before current period)
   const isMultiPeriod = useMemo(() => {
@@ -326,6 +323,8 @@ export function useProration() {
     ...state,
     scenario,
     isMultiPeriod,
+    showPreviousPlan,
+    showNextPlan,
     serviceEndResult,
     serviceStartResult,
     planChangeResult,
@@ -342,5 +341,7 @@ export function useProration() {
     updatePlanName,
     updateNewPlanName,
     updateBillingAnchorDay,
+    setShowPreviousPlan,
+    setShowNextPlan,
   };
 }
