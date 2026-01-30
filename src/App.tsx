@@ -11,7 +11,10 @@ function App() {
     plan,
     changeDate,
     newPlan,
+    scenario,
     isMultiPeriod,
+    serviceEndResult,
+    serviceStartResult,
     planChangeResult,
     multiPeriodResult,
     invoice,
@@ -35,7 +38,7 @@ function App() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">ProrateMate</h1>
-              <p className="text-sm text-gray-500">Enterprise billing proration calculator</p>
+              <p className="text-sm text-gray-500">Billing proration calculator</p>
             </div>
           </div>
         </div>
@@ -56,6 +59,7 @@ function App() {
             validationErrors={validationErrors}
             billingAnchorDay={billingAnchorDay}
             isMultiPeriod={isMultiPeriod}
+            scenario={scenario}
             onPeriodStartChange={updatePeriodStart}
             onBillingCycleChange={updateBillingCycle}
             onPlanNameChange={updatePlanName}
@@ -75,9 +79,12 @@ function App() {
             changeDate={changeDate}
             planChangeResult={planChangeResult}
             multiPeriodResult={multiPeriodResult}
+            serviceEndResult={serviceEndResult}
+            serviceStartResult={serviceStartResult}
             plan={plan}
             newPlan={newPlan}
             isMultiPeriod={isMultiPeriod}
+            scenario={scenario}
           />
         </div>
 
@@ -87,11 +94,96 @@ function App() {
         </div>
 
         {/* Calculation Details */}
-        {(planChangeResult || multiPeriodResult) && (
+        {(serviceEndResult || serviceStartResult || planChangeResult || multiPeriodResult) && (
           <div className="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Calculation Breakdown</h3>
 
-            {planChangeResult && !isMultiPeriod && (
+            {/* Service End: Cancellation credit */}
+            {serviceEndResult && scenario === 'serviceEnd' && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="p-4 bg-amber-50 rounded-lg">
+                  <div className="text-sm text-amber-600 mb-1">Service Usage</div>
+                  <div className="text-xl font-semibold text-amber-700">
+                    {serviceEndResult.daysUsed} days
+                  </div>
+                  <div className="text-xs text-amber-400 mt-1">
+                    of {serviceEndResult.totalDaysInPeriod} day period
+                  </div>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600 mb-1">Unused Days</div>
+                  <div className="text-xl font-semibold text-gray-700">
+                    {serviceEndResult.daysRemaining} days
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    after cancellation
+                  </div>
+                </div>
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <div className="text-sm text-blue-600 mb-1">Plan Price</div>
+                  <div className="text-xl font-semibold text-blue-700">
+                    ${plan.price.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-blue-400 mt-1">
+                    per billing period
+                  </div>
+                </div>
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <div className="text-sm text-green-600 mb-1">Credit Due</div>
+                  <div className="text-xl font-semibold text-green-700">
+                    ${serviceEndResult.credit.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-green-400 mt-1">
+                    refund for unused days
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Service Start: Prorated charge */}
+            {serviceStartResult && scenario === 'serviceStart' && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600 mb-1">Inactive Days</div>
+                  <div className="text-xl font-semibold text-gray-700">
+                    {serviceStartResult.daysInactive} days
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    before service start
+                  </div>
+                </div>
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <div className="text-sm text-green-600 mb-1">Active Days</div>
+                  <div className="text-xl font-semibold text-green-700">
+                    {serviceStartResult.daysActive} days
+                  </div>
+                  <div className="text-xs text-green-400 mt-1">
+                    of {serviceStartResult.totalDaysInPeriod} day period
+                  </div>
+                </div>
+                <div className="p-4 bg-amber-50 rounded-lg">
+                  <div className="text-sm text-amber-600 mb-1">Full Plan Price</div>
+                  <div className="text-xl font-semibold text-amber-700">
+                    ${newPlan.price.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-amber-400 mt-1">
+                    per billing period
+                  </div>
+                </div>
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <div className="text-sm text-blue-600 mb-1">Prorated Charge</div>
+                  <div className="text-xl font-semibold text-blue-700">
+                    ${serviceStartResult.charge.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-blue-400 mt-1">
+                    {serviceStartResult.percentageActive.toFixed(0)}% of full price
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Plan Change: Single period */}
+            {planChangeResult && !isMultiPeriod && scenario === 'planChange' && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-amber-50 rounded-lg">
                   <div className="text-sm text-amber-600 mb-1">Old Plan Usage</div>
@@ -134,7 +226,8 @@ function App() {
               </div>
             )}
 
-            {multiPeriodResult && isMultiPeriod && (
+            {/* Plan Change: Multi-period */}
+            {multiPeriodResult && isMultiPeriod && scenario === 'planChange' && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-500 mb-1">Periods Affected</div>
@@ -184,7 +277,7 @@ function App() {
       <footer className="border-t border-gray-200 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-center text-sm text-gray-500">
-            ProrateMate - A simple proration calculator for enterprise billing
+            ProrateMate - A simply complicated proration calculator
           </p>
         </div>
       </footer>

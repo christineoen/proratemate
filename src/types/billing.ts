@@ -1,5 +1,7 @@
 export type BillingCycle = 'monthly' | 'quarterly' | 'semiannual' | 'annual';
 
+export type ProrationScenario = 'serviceEnd' | 'serviceStart' | 'planChange' | 'none';
+
 export interface Plan {
   name: string;
   price: number;
@@ -40,6 +42,22 @@ export interface PlanChangeResult {
   // Display values (derived from seconds)
   oldPlanDaysUsed: number;
   newPlanDaysRemaining: number;
+}
+
+export interface ServiceEndResult {
+  credit: number;
+  daysUsed: number;
+  daysRemaining: number;
+  totalDaysInPeriod: number;
+  percentageUsed: number;
+}
+
+export interface ServiceStartResult {
+  charge: number;
+  daysActive: number;
+  daysInactive: number;
+  totalDaysInPeriod: number;
+  percentageActive: number;
 }
 
 export interface InvoiceLine {
