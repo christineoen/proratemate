@@ -9,8 +9,6 @@ interface TimelineBarProps {
   changeDate: Date;
   planChangeResult?: PlanChangeResult | null;
   multiPeriodResult?: MultiPeriodResult | null;
-  planPrice: number;
-  newPlanPrice: number;
   plan: Plan;
   newPlan: Plan;
   isMultiPeriod: boolean;
@@ -22,8 +20,6 @@ export function TimelineBar({
   changeDate,
   planChangeResult,
   multiPeriodResult,
-  planPrice,
-  newPlanPrice,
   plan,
   newPlan,
   isMultiPeriod,
@@ -52,9 +48,58 @@ export function TimelineBar({
     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Plan Change Timeline</h3>
 
+      {/* Plan Lines */}
+      <div className="mb-4 space-y-2">
+        {/* Old Plan Line */}
+        <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+            <div>
+              <span className="font-medium text-amber-700">{plan.name}</span>
+              <span className="text-amber-600 text-sm ml-2">
+                {format(periodStart, 'MMM d')} - {format(changeDate, 'MMM d, yyyy')}
+              </span>
+              <span className="text-amber-500 text-sm ml-2">({daysOnOldPlan} days)</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm text-amber-600">Credit</div>
+            <div className="font-semibold text-amber-700">{formatCurrency(planChangeResult.oldPlanCredit)}</div>
+          </div>
+        </div>
+
+        {/* New Plan Line */}
+        <div className={`flex items-center justify-between p-3 rounded-lg border ${
+          planChangeResult.isUpgrade
+            ? 'bg-green-50 border-green-200'
+            : 'bg-purple-50 border-purple-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${planChangeResult.isUpgrade ? 'bg-green-500' : 'bg-purple-500'}`}></div>
+            <div>
+              <span className={`font-medium ${planChangeResult.isUpgrade ? 'text-green-700' : 'text-purple-700'}`}>
+                {newPlan.name}
+              </span>
+              <span className={`text-sm ml-2 ${planChangeResult.isUpgrade ? 'text-green-600' : 'text-purple-600'}`}>
+                {format(changeDate, 'MMM d')} - {format(periodEnd, 'MMM d, yyyy')}
+              </span>
+              <span className={`text-sm ml-2 ${planChangeResult.isUpgrade ? 'text-green-500' : 'text-purple-500'}`}>
+                ({daysOnNewPlan} days)
+              </span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className={`text-sm ${planChangeResult.isUpgrade ? 'text-green-600' : 'text-purple-600'}`}>Charge</div>
+            <div className={`font-semibold ${planChangeResult.isUpgrade ? 'text-green-700' : 'text-purple-700'}`}>
+              {formatCurrency(planChangeResult.newPlanCharge)}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Timeline Bar */}
       <div className="relative mb-6">
-        <div className="h-12 rounded-lg overflow-hidden flex">
+        <div className="h-8 rounded-lg overflow-hidden flex">
           <div
             className="bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center text-xs font-medium text-white"
             style={{ width: `${oldPlanPercentage}%` }}
@@ -92,34 +137,15 @@ export function TimelineBar({
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex gap-4 mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-amber-500"></div>
-          <span className="text-sm text-gray-600">Old Plan ({formatCurrency(planPrice)}/period)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className={`w-4 h-4 rounded ${planChangeResult.isUpgrade ? 'bg-green-500' : 'bg-purple-500'}`}></div>
-          <span className="text-sm text-gray-600">New Plan ({formatCurrency(newPlanPrice)}/period)</span>
-        </div>
-      </div>
-
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-amber-600">{formatCurrency(planChangeResult.oldPlanCredit)}</div>
-          <div className="text-xs text-gray-500">Credit from Old Plan</div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-green-600">{formatCurrency(planChangeResult.newPlanCharge)}</div>
-          <div className="text-xs text-gray-500">New Plan Charge</div>
-        </div>
-        <div className="text-center">
-          <div className={`text-2xl font-bold ${planChangeResult.netAmount >= 0 ? 'text-blue-600' : 'text-green-600'}`}>
-            {formatCurrency(Math.abs(planChangeResult.netAmount))}
-          </div>
-          <div className="text-xs text-gray-500">
-            {planChangeResult.netAmount >= 0 ? 'Amount Due' : 'Credit Due'}
+      {/* Net Result */}
+      <div className="pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Net Result</span>
+          <div className={`text-xl font-bold ${planChangeResult.netAmount >= 0 ? 'text-blue-600' : 'text-green-600'}`}>
+            {planChangeResult.netAmount >= 0 ? '' : '-'}{formatCurrency(Math.abs(planChangeResult.netAmount))}
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              {planChangeResult.netAmount >= 0 ? 'due' : 'credit'}
+            </span>
           </div>
         </div>
       </div>

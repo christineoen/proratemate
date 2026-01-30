@@ -75,8 +75,6 @@ function App() {
             changeDate={changeDate}
             planChangeResult={planChangeResult}
             multiPeriodResult={multiPeriodResult}
-            planPrice={plan.price}
-            newPlanPrice={newPlan.price}
             plan={plan}
             newPlan={newPlan}
             isMultiPeriod={isMultiPeriod}
