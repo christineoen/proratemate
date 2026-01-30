@@ -13,12 +13,12 @@ function App() {
     plan,
     changeDate,
     newPlan,
+    isMultiPeriod,
     prorationResult,
     planChangeResult,
     multiPeriodResult,
     invoice,
     validationErrors,
-    effectiveChangeDate,
     billingAnchorDay,
     updateBillingCycle,
     updatePeriodStart,
@@ -29,7 +29,6 @@ function App() {
     updateNewPlanPrice,
     updatePlanName,
     updateNewPlanName,
-    updateEffectiveChangeDate,
     updateBillingAnchorDay,
   } = useProration();
 
@@ -74,8 +73,8 @@ function App() {
               newPlanPrice={newPlan.price}
               periodEnd={periodEnd}
               validationErrors={validationErrors}
-              effectiveChangeDate={effectiveChangeDate}
               billingAnchorDay={billingAnchorDay}
+              isMultiPeriod={isMultiPeriod}
               onCalculationTypeChange={updateCalculationType}
               onPeriodStartChange={updatePeriodStart}
               onServiceStartChange={updateServiceStart}
@@ -85,7 +84,6 @@ function App() {
               onChangeDateChange={updateChangeDate}
               onNewPlanNameChange={updateNewPlanName}
               onNewPlanPriceChange={updateNewPlanPrice}
-              onEffectiveChangeDateChange={updateEffectiveChangeDate}
               onBillingAnchorDayChange={updateBillingAnchorDay}
             />
           </div>
@@ -105,6 +103,7 @@ function App() {
               newPlanPrice={newPlan.price}
               plan={plan}
               newPlan={newPlan}
+              isMultiPeriod={isMultiPeriod}
             />
 
             <InvoicePreview invoice={invoice} />
@@ -157,7 +156,7 @@ function App() {
               </div>
             )}
 
-            {calculationType === 'planChange' && planChangeResult && (
+            {calculationType === 'planChange' && planChangeResult && !isMultiPeriod && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-amber-50 rounded-lg">
                   <div className="text-sm text-amber-600 mb-1">Old Plan Usage</div>
@@ -200,7 +199,7 @@ function App() {
               </div>
             )}
 
-            {calculationType === 'multiPeriod' && multiPeriodResult && (
+            {calculationType === 'planChange' && multiPeriodResult && isMultiPeriod && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-500 mb-1">Periods Affected</div>

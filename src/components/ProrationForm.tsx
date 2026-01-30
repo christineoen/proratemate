@@ -15,8 +15,8 @@ interface ProrationFormProps {
   newPlanPrice: number;
   periodEnd: Date;
   validationErrors: string[];
-  effectiveChangeDate: Date;
   billingAnchorDay: number;
+  isMultiPeriod: boolean;
   onCalculationTypeChange: (type: CalculationType) => void;
   onPeriodStartChange: (date: Date) => void;
   onServiceStartChange: (date: Date) => void;
@@ -26,7 +26,6 @@ interface ProrationFormProps {
   onChangeDateChange: (date: Date) => void;
   onNewPlanNameChange: (name: string) => void;
   onNewPlanPriceChange: (price: number) => void;
-  onEffectiveChangeDateChange: (date: Date) => void;
   onBillingAnchorDayChange: (day: number) => void;
 }
 
@@ -42,8 +41,8 @@ export function ProrationForm({
   newPlanPrice,
   periodEnd,
   validationErrors,
-  effectiveChangeDate,
   billingAnchorDay,
+  isMultiPeriod,
   onCalculationTypeChange,
   onPeriodStartChange,
   onServiceStartChange,
@@ -53,7 +52,6 @@ export function ProrationForm({
   onChangeDateChange,
   onNewPlanNameChange,
   onNewPlanPriceChange,
-  onEffectiveChangeDateChange,
   onBillingAnchorDayChange,
 }: ProrationFormProps) {
   return (
@@ -66,7 +64,7 @@ export function ProrationForm({
         <div className="flex gap-2">
           <button
             onClick={() => onCalculationTypeChange('lateStart')}
-            className={`flex-1 px-3 py-3 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
               calculationType === 'lateStart'
                 ? 'bg-blue-600 text-white shadow-md'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -76,7 +74,7 @@ export function ProrationForm({
           </button>
           <button
             onClick={() => onCalculationTypeChange('planChange')}
-            className={`flex-1 px-3 py-3 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
               calculationType === 'planChange'
                 ? 'bg-blue-600 text-white shadow-md'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -84,50 +82,92 @@ export function ProrationForm({
           >
             Plan Change
           </button>
-          <button
-            onClick={() => onCalculationTypeChange('multiPeriod')}
-            className={`flex-1 px-3 py-3 rounded-lg text-sm font-medium transition-all ${
-              calculationType === 'multiPeriod'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Multi-Period
-          </button>
         </div>
       </div>
 
-      {/* Billing Cycle */}
-      <div className="mb-6">
-        <label className="text-sm font-medium text-gray-700 block mb-2">Billing Cycle</label>
-        <select
-          value={billingCycle}
-          onChange={(e) => onBillingCycleChange(e.target.value as BillingCycle)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-        >
-          {Object.entries(CYCLE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Plan Change: Billing Cycle, Period Start, and Anchor Day on same line */}
+      {calculationType === 'planChange' && (
+        <div className="mb-6 grid grid-cols-3 gap-4">
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-2">Billing Cycle</label>
+            <select
+              value={billingCycle}
+              onChange={(e) => onBillingCycleChange(e.target.value as BillingCycle)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            >
+              {Object.entries(CYCLE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <DateRangePicker
+              label="Current Period Start"
+              value={periodStart}
+              onChange={onPeriodStartChange}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-2">Billing Anchor Day</label>
+            <select
+              value={billingAnchorDay}
+              onChange={(e) => onBillingAnchorDayChange(parseInt(e.target.value, 10))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            >
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                <option key={day} value={day}>
+                  {day}{day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
-      {/* Period Start Date - not shown for multi-period mode */}
-      {calculationType !== 'multiPeriod' && (
-        <div className="mb-6">
-          <DateRangePicker
-            label="Period Start Date"
-            value={periodStart}
-            onChange={onPeriodStartChange}
-          />
+      {/* Late Start: Billing Cycle only */}
+      {calculationType === 'lateStart' && (
+        <>
+          <div className="mb-6">
+            <label className="text-sm font-medium text-gray-700 block mb-2">Billing Cycle</label>
+            <select
+              value={billingCycle}
+              onChange={(e) => onBillingCycleChange(e.target.value as BillingCycle)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            >
+              {Object.entries(CYCLE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-6">
+            <DateRangePicker
+              label="Period Start Date"
+              value={periodStart}
+              onChange={onPeriodStartChange}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Multi-period indicator */}
+      {calculationType === 'planChange' && isMultiPeriod && (
+        <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+          <h4 className="text-sm font-semibold text-indigo-700 mb-1">Multi-Period Adjustment</h4>
+          <p className="text-xs text-indigo-600">
+            The change date is before the current period, so multiple billing periods will be adjusted.
+          </p>
         </div>
       )}
 
       {/* Current Plan */}
       <div className="mb-6 p-4 bg-gray-50 rounded-lg">
         <h4 className="text-sm font-semibold text-gray-700 mb-3">
-          {calculationType === 'planChange' ? 'Current Plan' : calculationType === 'multiPeriod' ? 'Old Plan (What they were charged)' : 'Plan Details'}
+          {calculationType === 'planChange' ? 'Current Plan' : 'Plan Details'}
         </h4>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -211,89 +251,11 @@ export function ProrationForm({
               label="Change Date"
               value={changeDate}
               onChange={onChangeDateChange}
-              min={periodStart}
-              max={periodEnd}
             />
             <p className="mt-1 text-xs text-gray-500">
               The date when the plan change takes effect
+              {isMultiPeriod && ' (retroactive - before current period)'}
             </p>
-          </div>
-        </>
-      )}
-
-      {/* Multi-Period: Effective Change Date + Billing Anchor + New Plan */}
-      {calculationType === 'multiPeriod' && (
-        <>
-          {/* Info box */}
-          <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-            <h4 className="text-sm font-semibold text-indigo-700 mb-2">How Multi-Period Adjustment Works</h4>
-            <p className="text-xs text-indigo-600">
-              Calculate retroactive adjustments when a customer should have switched plans earlier.
-              Enter when the change should have happened, and we'll calculate credits and charges
-              for all affected billing periods up to today.
-            </p>
-          </div>
-
-          {/* Billing Anchor Day */}
-          <div className="mb-6">
-            <label className="text-sm font-medium text-gray-700 block mb-2">Billing Anchor Day</label>
-            <select
-              value={billingAnchorDay}
-              onChange={(e) => onBillingAnchorDayChange(parseInt(e.target.value, 10))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-            >
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                <option key={day} value={day}>
-                  {day}{day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'} of each month
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              The day billing periods start (for 29-31, uses last day of shorter months)
-            </p>
-          </div>
-
-          {/* Effective Change Date */}
-          <div className="mb-6">
-            <DateRangePicker
-              label="Effective Change Date"
-              value={effectiveChangeDate}
-              onChange={onEffectiveChangeDateChange}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              When the plan change <span className="font-medium">should have</span> happened
-            </p>
-          </div>
-
-          {/* New Plan */}
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-            <h4 className="text-sm font-semibold text-blue-700 mb-3">New Plan (What they should be on)</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-gray-600 block mb-1">Plan Name</label>
-                <input
-                  type="text"
-                  value={newPlanName}
-                  onChange={(e) => onNewPlanNameChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  placeholder="e.g., Pro"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-600 block mb-1">Price (per period)</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <input
-                    type="number"
-                    value={newPlanPrice}
-                    onChange={(e) => onNewPlanPriceChange(parseFloat(e.target.value) || 0)}
-                    className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-            </div>
           </div>
         </>
       )}

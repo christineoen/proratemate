@@ -11,11 +11,12 @@ interface TimelineBarProps {
   prorationResult?: ProrationResult | null;
   planChangeResult?: PlanChangeResult | null;
   multiPeriodResult?: MultiPeriodResult | null;
-  calculationType: 'lateStart' | 'planChange' | 'multiPeriod';
+  calculationType: 'lateStart' | 'planChange';
   planPrice: number;
   newPlanPrice?: number;
   plan?: Plan;
   newPlan?: Plan;
+  isMultiPeriod?: boolean;
 }
 
 export function TimelineBar({
@@ -31,9 +32,10 @@ export function TimelineBar({
   newPlanPrice,
   plan,
   newPlan,
+  isMultiPeriod,
 }: TimelineBarProps) {
   // Handle multi-period mode
-  if (calculationType === 'multiPeriod' && multiPeriodResult && plan && newPlan) {
+  if (calculationType === 'planChange' && isMultiPeriod && multiPeriodResult && plan && newPlan) {
     return (
       <MultiPeriodTimeline
         multiPeriodResult={multiPeriodResult}
