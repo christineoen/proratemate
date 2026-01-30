@@ -103,6 +103,13 @@ export function ProrationForm({
             </select>
           </div>
           <div>
+            <DateRangePicker
+              label="Current Period Start"
+              value={periodStart}
+              onChange={onPeriodStartChange}
+            />
+          </div>
+          <div>
             <label className="text-sm font-medium text-gray-700 block mb-2">Anchor Day</label>
             <select
               value={billingAnchorDay}
@@ -115,13 +122,6 @@ export function ProrationForm({
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <DateRangePicker
-              label="Current Period Start"
-              value={periodStart}
-              onChange={onPeriodStartChange}
-            />
           </div>
           <div>
             <DateRangePicker
