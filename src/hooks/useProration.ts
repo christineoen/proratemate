@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { startOfMonth, endOfMonth, getDate, isBefore, differenceInSeconds } from 'date-fns';
+import { startOfMonth, endOfMonth, getDate, isBefore, differenceInSeconds, startOfDay } from 'date-fns';
 import type {
   BillingCycle,
   Plan,
@@ -43,7 +43,7 @@ function detectScenario(showPreviousPlan: boolean, showNextPlan: boolean): Prora
 }
 
 export function useProration() {
-  const today = new Date();
+  const today = startOfDay(new Date());
   const defaultPeriodStart = startOfMonth(today);
 
   const [state, setState] = useState<UseProrationState>({
@@ -83,12 +83,13 @@ export function useProration() {
   }, [state.periodStart]);
 
   const updatePeriodStart = useCallback((date: Date) => {
-    const newPeriodEnd = calculatePeriodEnd(date, state.billingCycle);
+    const normalizedDate = startOfDay(date);
+    const newPeriodEnd = calculatePeriodEnd(normalizedDate, state.billingCycle);
     setState(prev => ({
       ...prev,
-      periodStart: date,
+      periodStart: normalizedDate,
       periodEnd: newPeriodEnd,
-      billingAnchorDay: getDate(date),
+      billingAnchorDay: getDate(normalizedDate),
     }));
   }, [state.billingCycle]);
 
@@ -101,7 +102,7 @@ export function useProration() {
   }, []);
 
   const updateChangeDate = useCallback((date: Date) => {
-    setState(prev => ({ ...prev, changeDate: date }));
+    setState(prev => ({ ...prev, changeDate: startOfDay(date) }));
   }, []);
 
   const updatePlanPrice = useCallback((price: number) => {
