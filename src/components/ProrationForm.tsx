@@ -83,14 +83,10 @@ export function ProrationForm({
   onShowNextPlanChange,
 }: ProrationFormProps) {
   const handleRemovePreviousPlan = () => {
-    onPlanNameChange('');
-    onPlanPriceChange(0);
     onShowPreviousPlanChange(false);
   };
 
   const handleRemoveNextPlan = () => {
-    onNewPlanNameChange('');
-    onNewPlanPriceChange(0);
     onShowNextPlanChange(false);
   };
 
