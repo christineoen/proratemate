@@ -75,8 +75,6 @@ export function ProrationForm({
   onNewPlanPriceChange,
   onBillingAnchorDayChange,
 }: ProrationFormProps) {
-  const dateLabel = getDateLabel(scenario);
-
   // Track whether each plan section is shown
   const hasPreviousPlan = planName.trim() !== '' || planPrice > 0;
   const hasNextPlan = newPlanName.trim() !== '' || newPlanPrice > 0;
@@ -103,6 +101,16 @@ export function ProrationForm({
   const handleAddNextPlan = () => {
     setShowNextPlan(true);
   };
+
+  // Determine date label based on which plan sections are visible
+  const getVisibilityBasedDateLabel = (): string => {
+    if (showPreviousPlan && showNextPlan) {
+      return 'Effective Date';
+    }
+    return getDateLabel(scenario);
+  };
+
+  const dateLabel = getVisibilityBasedDateLabel();
 
   return (
     <div className="space-y-4">
