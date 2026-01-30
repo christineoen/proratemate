@@ -96,15 +96,6 @@ export function ProrationForm({
         </div>
       </div>
 
-      {/* Multi-period indicator */}
-      {isMultiPeriod && (
-        <div className="mb-6 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-          <p className="text-xs text-indigo-600">
-            <span className="font-semibold">Multi-Period Adjustment:</span> The plan change date is before the current period, so multiple billing periods will be adjusted.
-          </p>
-        </div>
-      )}
-
       {/* Current Plan and New Plan in one row */}
       <div className="mb-6 grid grid-cols-4 gap-4">
         <div>

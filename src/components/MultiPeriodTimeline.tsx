@@ -18,15 +18,20 @@ export function MultiPeriodTimeline({
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-900">Multi-Period Adjustment</h3>
-        <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-          isUpgrade
-            ? 'bg-green-100 text-green-700'
-            : 'bg-purple-100 text-purple-700'
-        }`}>
-          {isUpgrade ? 'Upgrade' : 'Downgrade'}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-semibold text-gray-900">Multi-Period Adjustment</h3>
+          <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+            isUpgrade
+              ? 'bg-green-100 text-green-700'
+              : 'bg-purple-100 text-purple-700'
+          }`}>
+            {isUpgrade ? 'Upgrade' : 'Downgrade'}
+          </div>
         </div>
+        <p className="text-sm text-gray-500">
+          The plan change date is before the current period, so {totalPeriodsAffected} billing period{totalPeriodsAffected !== 1 ? 's are' : ' is'} being adjusted retroactively.
+        </p>
       </div>
 
       {/* Summary */}
