@@ -85,45 +85,61 @@ export function ProrationForm({
         </div>
       </div>
 
-      {/* Plan Change: Billing Cycle, Period Start, and Anchor Day on same line */}
+      {/* Plan Change: Billing config rows */}
       {calculationType === 'planChange' && (
-        <div className="mb-6 grid grid-cols-3 gap-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-2">Billing Cycle</label>
-            <select
-              value={billingCycle}
-              onChange={(e) => onBillingCycleChange(e.target.value as BillingCycle)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-            >
-              {Object.entries(CYCLE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+        <>
+          {/* Row 1: Billing Cycle + Anchor Day */}
+          <div className="mb-4 grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-2">Billing Cycle</label>
+              <select
+                value={billingCycle}
+                onChange={(e) => onBillingCycleChange(e.target.value as BillingCycle)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              >
+                {Object.entries(CYCLE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-2">Billing Anchor Day</label>
+              <select
+                value={billingAnchorDay}
+                onChange={(e) => onBillingAnchorDayChange(parseInt(e.target.value, 10))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              >
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                  <option key={day} value={day}>
+                    {day}{day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div>
-            <DateRangePicker
-              label="Current Period Start"
-              value={periodStart}
-              onChange={onPeriodStartChange}
-            />
+          {/* Row 2: Current Period Start + Change Date */}
+          <div className="mb-6 grid grid-cols-2 gap-4">
+            <div>
+              <DateRangePicker
+                label="Current Period Start"
+                value={periodStart}
+                onChange={onPeriodStartChange}
+              />
+            </div>
+            <div>
+              <DateRangePicker
+                label="Change Date"
+                value={changeDate}
+                onChange={onChangeDateChange}
+              />
+              {isMultiPeriod && (
+                <p className="mt-1 text-xs text-indigo-600">Retroactive - before current period</p>
+              )}
+            </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-2">Billing Anchor Day</label>
-            <select
-              value={billingAnchorDay}
-              onChange={(e) => onBillingAnchorDayChange(parseInt(e.target.value, 10))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-            >
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                <option key={day} value={day}>
-                  {day}{day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        </>
       )}
 
       {/* Late Start: Billing Cycle only */}
@@ -246,17 +262,6 @@ export function ProrationForm({
             </div>
           </div>
 
-          <div className="mb-6">
-            <DateRangePicker
-              label="Change Date"
-              value={changeDate}
-              onChange={onChangeDateChange}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              The date when the plan change takes effect
-              {isMultiPeriod && ' (retroactive - before current period)'}
-            </p>
-          </div>
         </>
       )}
 
