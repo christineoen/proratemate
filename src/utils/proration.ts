@@ -1,5 +1,5 @@
 import {
-  differenceInDays,
+  differenceInSeconds,
   addMonths,
   startOfDay,
   isAfter,
@@ -18,7 +18,7 @@ import type {
   MultiPeriodResult,
   PeriodAdjustment,
 } from '../types/billing';
-import { CYCLE_MONTHS } from '../types/billing';
+import { CYCLE_MONTHS, SECONDS_PER_DAY } from '../types/billing';
 
 /**
  * Calculate the end date of a billing period given the start date and cycle
@@ -29,17 +29,24 @@ export function calculatePeriodEnd(periodStart: Date, cycle: BillingCycle): Date
 }
 
 /**
- * Calculate the total number of days in a billing period
+ * Calculate the total number of seconds in a billing period
  */
-export function calculateDaysInPeriod(periodStart: Date, periodEnd: Date): number {
-  return differenceInDays(periodEnd, periodStart);
+export function calculateSecondsInPeriod(periodStart: Date, periodEnd: Date): number {
+  return differenceInSeconds(periodEnd, periodStart);
 }
 
 /**
- * Calculate daily rate from a plan price and period length
+ * Convert seconds to days (for display purposes)
  */
-export function calculateDailyRate(price: number, daysInPeriod: number): number {
-  return price / daysInPeriod;
+export function secondsToDays(seconds: number): number {
+  return seconds / SECONDS_PER_DAY;
+}
+
+/**
+ * Calculate per-second rate from a plan price and period length in seconds
+ */
+export function calculateSecondlyRate(price: number, secondsInPeriod: number): number {
+  return price / secondsInPeriod;
 }
 
 /**
@@ -48,7 +55,7 @@ export function calculateDailyRate(price: number, daysInPeriod: number): number 
 export function calculateProration(input: ProrationInput): ProrationResult {
   const { periodStart, periodEnd, serviceStart, plan } = input;
 
-  const totalDaysInPeriod = calculateDaysInPeriod(periodStart, periodEnd);
+  const totalSecondsInPeriod = calculateSecondsInPeriod(periodStart, periodEnd);
 
   // Ensure service start is within the period
   const effectiveServiceStart = isBefore(serviceStart, periodStart)
@@ -59,20 +66,29 @@ export function calculateProration(input: ProrationInput): ProrationResult {
     ? input.serviceEnd
     : periodEnd;
 
-  const proratedDays = differenceInDays(effectiveServiceEnd, effectiveServiceStart);
-  const dailyRate = calculateDailyRate(plan.price, totalDaysInPeriod);
-  const proratedAmount = Math.round(dailyRate * proratedDays * 100) / 100;
-  const percentageUsed = (proratedDays / totalDaysInPeriod) * 100;
+  const proratedSeconds = differenceInSeconds(effectiveServiceEnd, effectiveServiceStart);
+  const secondlyRate = calculateSecondlyRate(plan.price, totalSecondsInPeriod);
+  const proratedAmount = Math.round(secondlyRate * proratedSeconds * 100) / 100;
+  const percentageUsed = (proratedSeconds / totalSecondsInPeriod) * 100;
   const credit = Math.round((plan.price - proratedAmount) * 100) / 100;
 
+  // Calculate display values
+  const totalDaysInPeriod = secondsToDays(totalSecondsInPeriod);
+  const proratedDays = secondsToDays(proratedSeconds);
+  const dailyRate = plan.price / totalDaysInPeriod;
+
   return {
-    totalDaysInPeriod,
-    proratedDays,
-    dailyRate: Math.round(dailyRate * 100) / 100,
+    totalSecondsInPeriod,
+    proratedSeconds,
+    secondlyRate,
     proratedAmount,
     fullAmount: plan.price,
     credit,
     percentageUsed: Math.round(percentageUsed * 100) / 100,
+    // Display values
+    totalDaysInPeriod: Math.round(totalDaysInPeriod * 100) / 100,
+    proratedDays: Math.round(proratedDays * 100) / 100,
+    dailyRate: Math.round(dailyRate * 100) / 100,
   };
 }
 
@@ -86,37 +102,44 @@ export function calculatePlanChange(
   oldPlan: Plan,
   newPlan: Plan
 ): PlanChangeResult {
-  const totalDaysInPeriod = calculateDaysInPeriod(periodStart, periodEnd);
+  const totalSecondsInPeriod = calculateSecondsInPeriod(periodStart, periodEnd);
 
-  // Days used on old plan (from period start to change date)
-  const oldPlanDaysUsed = differenceInDays(changeDate, periodStart);
+  // Seconds used on old plan (from period start to plan change date)
+  const oldPlanSecondsUsed = differenceInSeconds(changeDate, periodStart);
 
-  // Days remaining on new plan (from change date to period end)
-  const newPlanDaysRemaining = differenceInDays(periodEnd, changeDate);
+  // Seconds remaining on new plan (from plan change date to period end)
+  const newPlanSecondsRemaining = differenceInSeconds(periodEnd, changeDate);
 
-  // Calculate daily rates
-  const oldDailyRate = calculateDailyRate(oldPlan.price, totalDaysInPeriod);
-  const newDailyRate = calculateDailyRate(newPlan.price, totalDaysInPeriod);
+  // Calculate per-second rates
+  const oldSecondlyRate = calculateSecondlyRate(oldPlan.price, totalSecondsInPeriod);
+  const newSecondlyRate = calculateSecondlyRate(newPlan.price, totalSecondsInPeriod);
 
   // Old plan: credit for unused portion
-  const oldPlanUsedAmount = oldDailyRate * oldPlanDaysUsed;
+  const oldPlanUsedAmount = oldSecondlyRate * oldPlanSecondsUsed;
   const oldPlanCredit = Math.round((oldPlan.price - oldPlanUsedAmount) * 100) / 100;
 
   // New plan: charge for remaining portion
-  const newPlanCharge = Math.round(newDailyRate * newPlanDaysRemaining * 100) / 100;
+  const newPlanCharge = Math.round(newSecondlyRate * newPlanSecondsRemaining * 100) / 100;
 
   // Net amount (positive = charge, negative = refund)
   const netAmount = Math.round((newPlanCharge - oldPlanCredit) * 100) / 100;
 
   const isUpgrade = newPlan.price > oldPlan.price;
 
+  // Calculate display values
+  const oldPlanDaysUsed = secondsToDays(oldPlanSecondsUsed);
+  const newPlanDaysRemaining = secondsToDays(newPlanSecondsRemaining);
+
   return {
     oldPlanCredit,
-    oldPlanDaysUsed,
+    oldPlanSecondsUsed,
     newPlanCharge,
-    newPlanDaysRemaining,
+    newPlanSecondsRemaining,
     netAmount,
     isUpgrade,
+    // Display values
+    oldPlanDaysUsed: Math.round(oldPlanDaysUsed * 100) / 100,
+    newPlanDaysRemaining: Math.round(newPlanDaysRemaining * 100) / 100,
   };
 }
 
@@ -245,10 +268,10 @@ export function validateDates(input: ProrationInput): string[] {
 
   if (input.changeDate) {
     if (isBefore(input.changeDate, input.periodStart)) {
-      errors.push('Change date must be after period start date');
+      errors.push('Plan change date must be after period start date');
     }
     if (isAfter(input.changeDate, input.periodEnd)) {
-      errors.push('Change date must be before period end date');
+      errors.push('Plan change date must be before period end date');
     }
   }
 
@@ -265,7 +288,7 @@ function getBillingAnchorDate(year: number, month: number, anchorDay: number): D
 }
 
 /**
- * Generate all billing periods between effective change date and current date
+ * Generate all billing periods between effective plan change date and current date
  */
 export function generateBillingPeriods(
   effectiveChangeDate: Date,
@@ -276,7 +299,7 @@ export function generateBillingPeriods(
   const periods: { periodStart: Date; periodEnd: Date }[] = [];
   const cycleMonths = CYCLE_MONTHS[billingCycle];
 
-  // Find the billing period that contains the effective change date
+  // Find the billing period that contains the effective plan change date
   const effectiveYear = effectiveChangeDate.getFullYear();
   const effectiveMonth = effectiveChangeDate.getMonth();
 
@@ -328,15 +351,15 @@ export function calculatePeriodAdjustment(
   newPlan: Plan,
   periodNumber: number
 ): PeriodAdjustment {
-  const daysInPeriod = calculateDaysInPeriod(periodStart, periodEnd);
+  const secondsInPeriod = calculateSecondsInPeriod(periodStart, periodEnd);
 
   // Determine the affected portion of this period
   // For advance billing, the full period is affected once it's included (customer already paid for it)
   const effectiveStart = isAfter(effectiveChangeDate, periodStart) ? effectiveChangeDate : periodStart;
   const effectiveEnd = periodEnd; // Always go to period end for advance billing
 
-  const daysAffected = Math.max(0, differenceInDays(effectiveEnd, effectiveStart));
-  const isPartialPeriod = daysAffected < daysInPeriod;
+  const secondsAffected = Math.max(0, differenceInSeconds(effectiveEnd, effectiveStart));
+  const isPartialPeriod = secondsAffected < secondsInPeriod;
 
   // Determine where the unaffected portion falls
   // For advance billing, partial periods only occur at the start (first period with effectiveChangeDate mid-period)
@@ -345,21 +368,25 @@ export function calculatePeriodAdjustment(
     partialPosition = 'start';
   }
 
-  // Calculate daily rates
-  const oldDailyRate = calculateDailyRate(oldPlan.price, daysInPeriod);
-  const newDailyRate = calculateDailyRate(newPlan.price, daysInPeriod);
+  // Calculate per-second rates
+  const oldSecondlyRate = calculateSecondlyRate(oldPlan.price, secondsInPeriod);
+  const newSecondlyRate = calculateSecondlyRate(newPlan.price, secondsInPeriod);
 
-  // Old plan: what was charged for the affected days
-  const oldPlanCharge = Math.round(oldDailyRate * daysAffected * 100) / 100;
+  // Old plan: what was charged for the affected seconds
+  const oldPlanCharge = Math.round(oldSecondlyRate * secondsAffected * 100) / 100;
 
   // Credit from old plan (the amount they paid but shouldn't have)
   const creditFromOldPlan = oldPlanCharge;
 
-  // New plan: what should have been charged for the affected days
-  const chargeForNewPlan = Math.round(newDailyRate * daysAffected * 100) / 100;
+  // New plan: what should have been charged for the affected seconds
+  const chargeForNewPlan = Math.round(newSecondlyRate * secondsAffected * 100) / 100;
 
   // Net adjustment for this period (positive = customer owes, negative = refund)
   const netAdjustment = Math.round((chargeForNewPlan - creditFromOldPlan) * 100) / 100;
+
+  // Calculate display values
+  const daysInPeriod = secondsToDays(secondsInPeriod);
+  const daysAffected = secondsToDays(secondsAffected);
 
   return {
     periodNumber,
@@ -367,12 +394,15 @@ export function calculatePeriodAdjustment(
     periodEnd,
     isPartialPeriod,
     partialPosition,
-    daysInPeriod,
-    daysAffected,
+    secondsInPeriod,
+    secondsAffected,
     oldPlanCharge,
     creditFromOldPlan,
     chargeForNewPlan,
     netAdjustment,
+    // Display values
+    daysInPeriod: Math.round(daysInPeriod * 100) / 100,
+    daysAffected: Math.round(daysAffected * 100) / 100,
   };
 }
 
@@ -462,7 +492,7 @@ export function validateMultiPeriodInput(input: MultiPeriodInput): string[] {
   const errors: string[] = [];
 
   if (isAfter(input.effectiveChangeDate, input.currentDate)) {
-    errors.push('Effective change date must be before or equal to current date');
+    errors.push('Effective plan change date must be before or equal to current date');
   }
 
   if (input.billingAnchorDay < 1 || input.billingAnchorDay > 31) {

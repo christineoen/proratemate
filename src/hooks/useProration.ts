@@ -56,7 +56,7 @@ export function useProration() {
     billingAnchorDay: getDate(defaultPeriodStart),
   });
 
-  // Determine if this is a multi-period scenario (change date is before current period)
+  // Determine if this is a multi-period scenario (plan change date is before current period)
   const isMultiPeriod = useMemo(() => {
     if (state.calculationType !== 'planChange') return false;
     return isBefore(state.changeDate, state.periodStart);
@@ -200,7 +200,7 @@ export function useProration() {
     return null;
   }, [state, validationErrors, isMultiPeriod]);
 
-  // Calculate multi-period result (when change date is before current period)
+  // Calculate multi-period result (when plan change date is before current period)
   const multiPeriodResult: MultiPeriodResult | null = useMemo(() => {
     if (validationErrors.length > 0) return null;
 

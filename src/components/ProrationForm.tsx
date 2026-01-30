@@ -119,7 +119,7 @@ export function ProrationForm({
               </select>
             </div>
           </div>
-          {/* Row 2: Current Period Start + Change Date */}
+          {/* Row 2: Current Period Start + Plan Change Date */}
           <div className="mb-6 grid grid-cols-2 gap-4">
             <div>
               <DateRangePicker
@@ -130,7 +130,7 @@ export function ProrationForm({
             </div>
             <div>
               <DateRangePicker
-                label="Change Date"
+                label="Plan Change Date"
                 value={changeDate}
                 onChange={onChangeDateChange}
               />
@@ -175,7 +175,7 @@ export function ProrationForm({
         <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
           <h4 className="text-sm font-semibold text-indigo-700 mb-1">Multi-Period Adjustment</h4>
           <p className="text-xs text-indigo-600">
-            The change date is before the current period, so multiple billing periods will be adjusted.
+            The plan change date is before the current period, so multiple billing periods will be adjusted.
           </p>
         </div>
       )}
@@ -229,7 +229,7 @@ export function ProrationForm({
         </div>
       )}
 
-      {/* Plan Change: New Plan + Change Date */}
+      {/* Plan Change: New Plan + Plan Change Date */}
       {calculationType === 'planChange' && (
         <>
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">

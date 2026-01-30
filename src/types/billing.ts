@@ -17,22 +17,29 @@ export interface ProrationInput {
 }
 
 export interface ProrationResult {
-  totalDaysInPeriod: number;
-  proratedDays: number;
-  dailyRate: number;
+  totalSecondsInPeriod: number;
+  proratedSeconds: number;
+  secondlyRate: number;
   proratedAmount: number;
   fullAmount: number;
   credit: number;
   percentageUsed: number;
+  // Display values (derived from seconds)
+  totalDaysInPeriod: number;
+  proratedDays: number;
+  dailyRate: number;
 }
 
 export interface PlanChangeResult {
   oldPlanCredit: number;
-  oldPlanDaysUsed: number;
+  oldPlanSecondsUsed: number;
   newPlanCharge: number;
-  newPlanDaysRemaining: number;
+  newPlanSecondsRemaining: number;
   netAmount: number;
   isUpgrade: boolean;
+  // Display values (derived from seconds)
+  oldPlanDaysUsed: number;
+  newPlanDaysRemaining: number;
 }
 
 export interface InvoiceLine {
@@ -66,18 +73,23 @@ export const CYCLE_LABELS: Record<BillingCycle, string> = {
   annual: 'Annual',
 };
 
+export const SECONDS_PER_DAY = 86400;
+
 export interface PeriodAdjustment {
   periodNumber: number;
   periodStart: Date;
   periodEnd: Date;
   isPartialPeriod: boolean;
-  partialPosition: 'start' | 'end' | 'none'; // where unaffected days are: 'start' = first period, 'end' = last period
-  daysInPeriod: number;
-  daysAffected: number;
+  partialPosition: 'start' | 'end' | 'none';
+  secondsInPeriod: number;
+  secondsAffected: number;
   oldPlanCharge: number;
   creditFromOldPlan: number;
   chargeForNewPlan: number;
   netAdjustment: number;
+  // Display values (derived from seconds)
+  daysInPeriod: number;
+  daysAffected: number;
 }
 
 export interface MultiPeriodInput {
