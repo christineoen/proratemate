@@ -58,56 +58,57 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column: Form */}
-          <div>
-            <ProrationForm
-              calculationType={calculationType}
-              periodStart={periodStart}
-              serviceStart={serviceStart}
-              billingCycle={billingCycle}
-              planName={plan.name}
-              planPrice={plan.price}
-              changeDate={changeDate}
-              newPlanName={newPlan.name}
-              newPlanPrice={newPlan.price}
-              periodEnd={periodEnd}
-              validationErrors={validationErrors}
-              billingAnchorDay={billingAnchorDay}
-              isMultiPeriod={isMultiPeriod}
-              onCalculationTypeChange={updateCalculationType}
-              onPeriodStartChange={updatePeriodStart}
-              onServiceStartChange={updateServiceStart}
-              onBillingCycleChange={updateBillingCycle}
-              onPlanNameChange={updatePlanName}
-              onPlanPriceChange={updatePlanPrice}
-              onChangeDateChange={updateChangeDate}
-              onNewPlanNameChange={updateNewPlanName}
-              onNewPlanPriceChange={updateNewPlanPrice}
-              onBillingAnchorDayChange={updateBillingAnchorDay}
-            />
-          </div>
+        {/* Billing Configuration */}
+        <div className="mb-8">
+          <ProrationForm
+            calculationType={calculationType}
+            periodStart={periodStart}
+            serviceStart={serviceStart}
+            billingCycle={billingCycle}
+            planName={plan.name}
+            planPrice={plan.price}
+            changeDate={changeDate}
+            newPlanName={newPlan.name}
+            newPlanPrice={newPlan.price}
+            periodEnd={periodEnd}
+            validationErrors={validationErrors}
+            billingAnchorDay={billingAnchorDay}
+            isMultiPeriod={isMultiPeriod}
+            onCalculationTypeChange={updateCalculationType}
+            onPeriodStartChange={updatePeriodStart}
+            onServiceStartChange={updateServiceStart}
+            onBillingCycleChange={updateBillingCycle}
+            onPlanNameChange={updatePlanName}
+            onPlanPriceChange={updatePlanPrice}
+            onChangeDateChange={updateChangeDate}
+            onNewPlanNameChange={updateNewPlanName}
+            onNewPlanPriceChange={updateNewPlanPrice}
+            onBillingAnchorDayChange={updateBillingAnchorDay}
+          />
+        </div>
 
-          {/* Right Column: Timeline + Invoice */}
-          <div className="space-y-8">
-            <TimelineBar
-              periodStart={periodStart}
-              periodEnd={periodEnd}
-              serviceStart={serviceStart}
-              changeDate={changeDate}
-              prorationResult={prorationResult}
-              planChangeResult={planChangeResult}
-              multiPeriodResult={multiPeriodResult}
-              calculationType={calculationType}
-              planPrice={plan.price}
-              newPlanPrice={newPlan.price}
-              plan={plan}
-              newPlan={newPlan}
-              isMultiPeriod={isMultiPeriod}
-            />
+        {/* Timeline */}
+        <div className="mb-8">
+          <TimelineBar
+            periodStart={periodStart}
+            periodEnd={periodEnd}
+            serviceStart={serviceStart}
+            changeDate={changeDate}
+            prorationResult={prorationResult}
+            planChangeResult={planChangeResult}
+            multiPeriodResult={multiPeriodResult}
+            calculationType={calculationType}
+            planPrice={plan.price}
+            newPlanPrice={newPlan.price}
+            plan={plan}
+            newPlan={newPlan}
+            isMultiPeriod={isMultiPeriod}
+          />
+        </div>
 
-            <InvoicePreview invoice={invoice} />
-          </div>
+        {/* Invoice */}
+        <div className="mb-8">
+          <InvoicePreview invoice={invoice} />
         </div>
 
         {/* Calculation Details */}
