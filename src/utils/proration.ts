@@ -321,7 +321,8 @@ export function generateBillingPeriods(
   }
 
   // Now iterate forward from this period
-  while (isBefore(periodStart, currentDate) || periodStart.getTime() === currentDate.getTime()) {
+  // Stop when periodStart reaches or passes currentDate (which is the current period's end)
+  while (isBefore(periodStart, currentDate)) {
     const periodEnd = calculatePeriodEnd(periodStart, billingCycle);
 
     // Only include periods that overlap with the affected range
