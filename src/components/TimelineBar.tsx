@@ -1,6 +1,6 @@
 import { format, differenceInDays } from 'date-fns';
 import { formatCurrency } from '../utils/proration';
-import type { PlanChangeResult, MultiPeriodResult, Plan, ProrationScenario, ServiceEndResult, ServiceStartResult } from '../types/billing';
+import type { PlanChangeResult, MultiPeriodResult, Plan, ProrationScenario, ServiceEndResult, ServiceStartResult, MultiPeriodServiceEndResult, MultiPeriodServiceStartResult } from '../types/billing';
 import { MultiPeriodTimeline } from './MultiPeriodTimeline';
 
 interface TimelineBarProps {
@@ -11,6 +11,8 @@ interface TimelineBarProps {
   multiPeriodResult?: MultiPeriodResult | null;
   serviceEndResult?: ServiceEndResult | null;
   serviceStartResult?: ServiceStartResult | null;
+  multiPeriodServiceEndResult?: MultiPeriodServiceEndResult | null;
+  multiPeriodServiceStartResult?: MultiPeriodServiceStartResult | null;
   plan: Plan;
   newPlan: Plan;
   isMultiPeriod: boolean;
@@ -25,12 +27,14 @@ export function TimelineBar({
   multiPeriodResult,
   serviceEndResult,
   serviceStartResult,
+  multiPeriodServiceEndResult,
+  multiPeriodServiceStartResult,
   plan,
   newPlan,
   isMultiPeriod,
   scenario,
 }: TimelineBarProps) {
-  // Handle multi-period mode (only for plan change)
+  // Handle multi-period plan change
   if (isMultiPeriod && multiPeriodResult && scenario === 'planChange') {
     return (
       <MultiPeriodTimeline
@@ -38,6 +42,100 @@ export function TimelineBar({
         oldPlan={plan}
         newPlan={newPlan}
       />
+    );
+  }
+
+  // Handle multi-period service end (retroactive cancellation)
+  if (isMultiPeriod && multiPeriodServiceEndResult && scenario === 'serviceEnd') {
+    return (
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Retroactive Cancellation</h3>
+          <p className="text-sm text-gray-500">
+            {multiPeriodServiceEndResult.totalPeriodsAffected} billing period{multiPeriodServiceEndResult.totalPeriodsAffected > 1 ? 's' : ''} affected
+          </p>
+        </div>
+
+        {/* Period breakdown */}
+        <div className="space-y-2 mb-4">
+          {multiPeriodServiceEndResult.periods.map((period) => (
+            <div key={period.periodNumber} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div>
+                  <span className="font-medium text-green-700">Period {period.periodNumber}</span>
+                  <span className="text-green-600 text-sm ml-2">
+                    {format(period.periodStart, 'MMM d')} - {format(period.periodEnd, 'MMM d, yyyy')}
+                  </span>
+                  <span className="text-green-500 text-sm ml-2">({period.daysCredited} days credited)</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-green-600">Credit</div>
+                <div className="font-semibold text-green-700">{formatCurrency(period.credit)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Net Result */}
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">Total Credit Due</span>
+            <div className="text-xl font-bold text-green-600">
+              {formatCurrency(multiPeriodServiceEndResult.totalCredit)}
+              <span className="text-sm font-normal text-gray-500 ml-2">refund</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle multi-period service start (retroactive start)
+  if (isMultiPeriod && multiPeriodServiceStartResult && scenario === 'serviceStart') {
+    return (
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Retroactive Service Start</h3>
+          <p className="text-sm text-gray-500">
+            {multiPeriodServiceStartResult.totalPeriodsAffected} billing period{multiPeriodServiceStartResult.totalPeriodsAffected > 1 ? 's' : ''} affected
+          </p>
+        </div>
+
+        {/* Period breakdown */}
+        <div className="space-y-2 mb-4">
+          {multiPeriodServiceStartResult.periods.map((period) => (
+            <div key={period.periodNumber} className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                <div>
+                  <span className="font-medium text-amber-700">Period {period.periodNumber}</span>
+                  <span className="text-amber-600 text-sm ml-2">
+                    {format(period.periodStart, 'MMM d')} - {format(period.periodEnd, 'MMM d, yyyy')}
+                  </span>
+                  <span className="text-amber-500 text-sm ml-2">({period.daysCharged} days)</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-amber-600">Charge</div>
+                <div className="font-semibold text-amber-700">{formatCurrency(period.charge)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Net Result */}
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">Total Amount Due</span>
+            <div className="text-xl font-bold text-amber-600">
+              {formatCurrency(multiPeriodServiceStartResult.totalCharge)}
+              <span className="text-sm font-normal text-gray-500 ml-2">prorated</span>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 

@@ -17,6 +17,8 @@ function App() {
     showNextPlan,
     serviceEndResult,
     serviceStartResult,
+    multiPeriodServiceEndResult,
+    multiPeriodServiceStartResult,
     planChangeResult,
     multiPeriodResult,
     invoice,
@@ -89,6 +91,8 @@ function App() {
             multiPeriodResult={multiPeriodResult}
             serviceEndResult={serviceEndResult}
             serviceStartResult={serviceStartResult}
+            multiPeriodServiceEndResult={multiPeriodServiceEndResult}
+            multiPeriodServiceStartResult={multiPeriodServiceStartResult}
             plan={plan}
             newPlan={newPlan}
             isMultiPeriod={isMultiPeriod}
@@ -102,12 +106,54 @@ function App() {
         </div>
 
         {/* Calculation Details */}
-        {(serviceEndResult || serviceStartResult || planChangeResult || multiPeriodResult) && (
+        {(serviceEndResult || serviceStartResult || planChangeResult || multiPeriodResult || multiPeriodServiceEndResult || multiPeriodServiceStartResult) && (
           <div className="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Calculation Breakdown</h3>
 
-            {/* Service End: Cancellation credit */}
-            {serviceEndResult && scenario === 'serviceEnd' && (
+            {/* Service End: Multi-period cancellation credit */}
+            {multiPeriodServiceEndResult && scenario === 'serviceEnd' && isMultiPeriod && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">Periods Affected</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {multiPeriodServiceEndResult.totalPeriodsAffected}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    billing periods
+                  </div>
+                </div>
+                <div className="p-4 bg-amber-50 rounded-lg">
+                  <div className="text-sm text-amber-600 mb-1">Plan Price</div>
+                  <div className="text-xl font-semibold text-amber-700">
+                    ${plan.price.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-amber-400 mt-1">
+                    per billing period
+                  </div>
+                </div>
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <div className="text-sm text-green-600 mb-1">Total Credit</div>
+                  <div className="text-xl font-semibold text-green-700">
+                    ${multiPeriodServiceEndResult.totalCredit.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-green-400 mt-1">
+                    retroactive refund
+                  </div>
+                </div>
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <div className="text-sm text-green-600 mb-1">Credit Due</div>
+                  <div className="text-xl font-semibold text-green-700">
+                    ${multiPeriodServiceEndResult.totalCredit.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-green-400 mt-1">
+                    total refund
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Service End: Single period cancellation credit */}
+            {serviceEndResult && scenario === 'serviceEnd' && !isMultiPeriod && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-amber-50 rounded-lg">
                   <div className="text-sm text-amber-600 mb-1">Service Usage</div>
@@ -148,8 +194,50 @@ function App() {
               </div>
             )}
 
-            {/* Service Start: Prorated charge */}
-            {serviceStartResult && scenario === 'serviceStart' && (
+            {/* Service Start: Multi-period prorated charge */}
+            {multiPeriodServiceStartResult && scenario === 'serviceStart' && isMultiPeriod && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">Periods Affected</div>
+                  <div className="text-xl font-semibold text-gray-900">
+                    {multiPeriodServiceStartResult.totalPeriodsAffected}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    billing periods
+                  </div>
+                </div>
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <div className="text-sm text-blue-600 mb-1">Plan Price</div>
+                  <div className="text-xl font-semibold text-blue-700">
+                    ${newPlan.price.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-blue-400 mt-1">
+                    per billing period
+                  </div>
+                </div>
+                <div className="p-4 bg-amber-50 rounded-lg">
+                  <div className="text-sm text-amber-600 mb-1">Total Charges</div>
+                  <div className="text-xl font-semibold text-amber-700">
+                    ${multiPeriodServiceStartResult.totalCharge.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-amber-400 mt-1">
+                    retroactive charges
+                  </div>
+                </div>
+                <div className="p-4 bg-amber-50 rounded-lg">
+                  <div className="text-sm text-amber-600 mb-1">Amount Due</div>
+                  <div className="text-xl font-semibold text-amber-700">
+                    ${multiPeriodServiceStartResult.totalCharge.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-amber-400 mt-1">
+                    total charge
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Service Start: Single period prorated charge */}
+            {serviceStartResult && scenario === 'serviceStart' && !isMultiPeriod && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-600 mb-1">Inactive Days</div>
@@ -178,12 +266,12 @@ function App() {
                     per billing period
                   </div>
                 </div>
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-blue-600 mb-1">Prorated Charge</div>
-                  <div className="text-xl font-semibold text-blue-700">
+                <div className="p-4 bg-amber-50 rounded-lg">
+                  <div className="text-sm text-amber-600 mb-1">Prorated Charge</div>
+                  <div className="text-xl font-semibold text-amber-700">
                     ${serviceStartResult.charge.toFixed(2)}
                   </div>
-                  <div className="text-xs text-blue-400 mt-1">
+                  <div className="text-xs text-amber-400 mt-1">
                     {serviceStartResult.percentageActive.toFixed(0)}% of full price
                   </div>
                 </div>

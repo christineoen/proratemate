@@ -60,6 +60,32 @@ export interface ServiceStartResult {
   percentageActive: number;
 }
 
+export interface MultiPeriodServiceEndResult {
+  periods: {
+    periodNumber: number;
+    periodStart: Date;
+    periodEnd: Date;
+    daysInPeriod: number;
+    daysCredited: number;
+    credit: number;
+  }[];
+  totalPeriodsAffected: number;
+  totalCredit: number;
+}
+
+export interface MultiPeriodServiceStartResult {
+  periods: {
+    periodNumber: number;
+    periodStart: Date;
+    periodEnd: Date;
+    daysInPeriod: number;
+    daysCharged: number;
+    charge: number;
+  }[];
+  totalPeriodsAffected: number;
+  totalCharge: number;
+}
+
 export interface InvoiceLine {
   description: string;
   quantity: number;

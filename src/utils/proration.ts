@@ -17,6 +17,8 @@ import type {
   MultiPeriodInput,
   MultiPeriodResult,
   PeriodAdjustment,
+  MultiPeriodServiceEndResult,
+  MultiPeriodServiceStartResult,
 } from '../types/billing';
 import { CYCLE_MONTHS, SECONDS_PER_DAY } from '../types/billing';
 
@@ -509,4 +511,100 @@ export function validateMultiPeriodInput(input: MultiPeriodInput): string[] {
   }
 
   return errors;
+}
+
+/**
+ * Calculate multi-period service end (cancellation with retroactive effective date)
+ */
+export function calculateMultiPeriodServiceEnd(
+  effectiveEndDate: Date,
+  currentDate: Date,
+  billingCycle: BillingCycle,
+  billingAnchorDay: number,
+  plan: Plan
+): MultiPeriodServiceEndResult {
+  const billingPeriods = generateBillingPeriods(
+    effectiveEndDate,
+    currentDate,
+    billingCycle,
+    billingAnchorDay
+  );
+
+  const periods = billingPeriods.map((period, index) => {
+    const secondsInPeriod = calculateSecondsInPeriod(period.periodStart, period.periodEnd);
+    const daysInPeriod = Math.round(secondsToDays(secondsInPeriod) * 100) / 100;
+
+    // Determine the effective end within this period
+    const effectiveEnd = isAfter(effectiveEndDate, period.periodStart) ? effectiveEndDate : period.periodStart;
+    const secondsCredited = differenceInSeconds(period.periodEnd, effectiveEnd);
+    const daysCredited = Math.round(secondsToDays(secondsCredited) * 100) / 100;
+
+    const secondlyRate = calculateSecondlyRate(plan.price, secondsInPeriod);
+    const credit = Math.round(secondlyRate * secondsCredited * 100) / 100;
+
+    return {
+      periodNumber: index + 1,
+      periodStart: period.periodStart,
+      periodEnd: period.periodEnd,
+      daysInPeriod,
+      daysCredited,
+      credit,
+    };
+  });
+
+  const totalCredit = Math.round(periods.reduce((sum, p) => sum + p.credit, 0) * 100) / 100;
+
+  return {
+    periods,
+    totalPeriodsAffected: periods.length,
+    totalCredit,
+  };
+}
+
+/**
+ * Calculate multi-period service start (late start with retroactive effective date)
+ */
+export function calculateMultiPeriodServiceStart(
+  effectiveStartDate: Date,
+  currentDate: Date,
+  billingCycle: BillingCycle,
+  billingAnchorDay: number,
+  plan: Plan
+): MultiPeriodServiceStartResult {
+  const billingPeriods = generateBillingPeriods(
+    effectiveStartDate,
+    currentDate,
+    billingCycle,
+    billingAnchorDay
+  );
+
+  const periods = billingPeriods.map((period, index) => {
+    const secondsInPeriod = calculateSecondsInPeriod(period.periodStart, period.periodEnd);
+    const daysInPeriod = Math.round(secondsToDays(secondsInPeriod) * 100) / 100;
+
+    // Determine the effective start within this period
+    const effectiveStart = isAfter(effectiveStartDate, period.periodStart) ? effectiveStartDate : period.periodStart;
+    const secondsCharged = differenceInSeconds(period.periodEnd, effectiveStart);
+    const daysCharged = Math.round(secondsToDays(secondsCharged) * 100) / 100;
+
+    const secondlyRate = calculateSecondlyRate(plan.price, secondsInPeriod);
+    const charge = Math.round(secondlyRate * secondsCharged * 100) / 100;
+
+    return {
+      periodNumber: index + 1,
+      periodStart: period.periodStart,
+      periodEnd: period.periodEnd,
+      daysInPeriod,
+      daysCharged,
+      charge,
+    };
+  });
+
+  const totalCharge = Math.round(periods.reduce((sum, p) => sum + p.charge, 0) * 100) / 100;
+
+  return {
+    periods,
+    totalPeriodsAffected: periods.length,
+    totalCharge,
+  };
 }

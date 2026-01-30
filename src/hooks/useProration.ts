@@ -9,6 +9,8 @@ import type {
   ProrationScenario,
   ServiceEndResult,
   ServiceStartResult,
+  MultiPeriodServiceEndResult,
+  MultiPeriodServiceStartResult,
 } from '../types/billing';
 import {
   calculatePeriodEnd,
@@ -16,10 +18,11 @@ import {
   generatePlanChangeInvoice,
   calculateMultiPeriodAdjustment,
   generateMultiPeriodInvoice,
-  validateMultiPeriodInput,
   calculateSecondsInPeriod,
   calculateSecondlyRate,
   secondsToDays,
+  calculateMultiPeriodServiceEnd,
+  calculateMultiPeriodServiceStart,
 } from '../utils/proration';
 
 interface UseProrationState {
@@ -147,21 +150,12 @@ export function useProration() {
       return errors;
     }
 
-    // Common date validation
+    // Multi-period validation (date before current period)
     if (isBefore(state.changeDate, state.periodStart)) {
-      // Multi-period mode - use multi-period validation
-      if (scenario === 'planChange') {
-        return validateMultiPeriodInput({
-          effectiveChangeDate: state.changeDate,
-          currentDate: state.periodEnd,
-          billingCycle: state.billingCycle,
-          billingAnchorDay: state.billingAnchorDay,
-          oldPlan: state.plan,
-          newPlan: state.newPlan,
-        });
+      // Basic validation for multi-period
+      if (state.billingAnchorDay < 1 || state.billingAnchorDay > 31) {
+        errors.push('Billing anchor day must be between 1 and 31');
       }
-      // For single plan scenarios, date before period is an error
-      errors.push('Date must be within the billing period');
       return errors;
     }
 
@@ -173,9 +167,9 @@ export function useProration() {
     return errors;
   }, [state, scenario]);
 
-  // Calculate service end result (current plan only - cancellation credit)
+  // Calculate service end result (current plan only - cancellation credit, single period)
   const serviceEndResult: ServiceEndResult | null = useMemo(() => {
-    if (validationErrors.length > 0 || scenario !== 'serviceEnd') return null;
+    if (validationErrors.length > 0 || scenario !== 'serviceEnd' || isMultiPeriod) return null;
 
     const totalSecondsInPeriod = calculateSecondsInPeriod(state.periodStart, state.periodEnd);
     const secondsUsed = differenceInSeconds(state.changeDate, state.periodStart);
@@ -191,11 +185,24 @@ export function useProration() {
       totalDaysInPeriod: Math.round(secondsToDays(totalSecondsInPeriod) * 100) / 100,
       percentageUsed: Math.round(percentageUsed * 100) / 100,
     };
-  }, [state, validationErrors, scenario]);
+  }, [state, validationErrors, scenario, isMultiPeriod]);
 
-  // Calculate service start result (new plan only - prorated charge)
+  // Calculate multi-period service end result
+  const multiPeriodServiceEndResult: MultiPeriodServiceEndResult | null = useMemo(() => {
+    if (validationErrors.length > 0 || scenario !== 'serviceEnd' || !isMultiPeriod) return null;
+
+    return calculateMultiPeriodServiceEnd(
+      state.changeDate,
+      state.periodEnd,
+      state.billingCycle,
+      state.billingAnchorDay,
+      state.plan
+    );
+  }, [state, validationErrors, scenario, isMultiPeriod]);
+
+  // Calculate service start result (new plan only - prorated charge, single period)
   const serviceStartResult: ServiceStartResult | null = useMemo(() => {
-    if (validationErrors.length > 0 || scenario !== 'serviceStart') return null;
+    if (validationErrors.length > 0 || scenario !== 'serviceStart' || isMultiPeriod) return null;
 
     const totalSecondsInPeriod = calculateSecondsInPeriod(state.periodStart, state.periodEnd);
     const secondsInactive = differenceInSeconds(state.changeDate, state.periodStart);
@@ -211,7 +218,20 @@ export function useProration() {
       totalDaysInPeriod: Math.round(secondsToDays(totalSecondsInPeriod) * 100) / 100,
       percentageActive: Math.round(percentageActive * 100) / 100,
     };
-  }, [state, validationErrors, scenario]);
+  }, [state, validationErrors, scenario, isMultiPeriod]);
+
+  // Calculate multi-period service start result
+  const multiPeriodServiceStartResult: MultiPeriodServiceStartResult | null = useMemo(() => {
+    if (validationErrors.length > 0 || scenario !== 'serviceStart' || !isMultiPeriod) return null;
+
+    return calculateMultiPeriodServiceStart(
+      state.changeDate,
+      state.periodEnd,
+      state.billingCycle,
+      state.billingAnchorDay,
+      state.newPlan
+    );
+  }, [state, validationErrors, scenario, isMultiPeriod]);
 
   // Calculate plan change result (single period only)
   const planChangeResult: PlanChangeResult | null = useMemo(() => {
@@ -250,7 +270,27 @@ export function useProration() {
   const invoice: Invoice | null = useMemo(() => {
     if (validationErrors.length > 0) return null;
 
-    // Service End: Credit for unused portion
+    // Service End: Multi-period credit
+    if (scenario === 'serviceEnd' && isMultiPeriod && multiPeriodServiceEndResult) {
+      const lines = multiPeriodServiceEndResult.periods.map((period) => ({
+        description: `${state.plan.name} - Credit for Period ${period.periodNumber} (${period.daysCredited} days)`,
+        quantity: 1,
+        unitPrice: -period.credit,
+        amount: -period.credit,
+        isCredit: true,
+      }));
+
+      return {
+        lines,
+        subtotal: 0,
+        credits: multiPeriodServiceEndResult.totalCredit,
+        total: -multiPeriodServiceEndResult.totalCredit,
+        periodStart: multiPeriodServiceEndResult.periods[0]?.periodStart || state.changeDate,
+        periodEnd: multiPeriodServiceEndResult.periods[multiPeriodServiceEndResult.periods.length - 1]?.periodEnd || state.periodEnd,
+      };
+    }
+
+    // Service End: Single period credit
     if (scenario === 'serviceEnd' && serviceEndResult) {
       return {
         lines: [
@@ -270,7 +310,27 @@ export function useProration() {
       };
     }
 
-    // Service Start: Prorated charge
+    // Service Start: Multi-period charge
+    if (scenario === 'serviceStart' && isMultiPeriod && multiPeriodServiceStartResult) {
+      const lines = multiPeriodServiceStartResult.periods.map((period) => ({
+        description: `${state.newPlan.name} - Charge for Period ${period.periodNumber} (${period.daysCharged} days)`,
+        quantity: 1,
+        unitPrice: period.charge,
+        amount: period.charge,
+        isCredit: false,
+      }));
+
+      return {
+        lines,
+        subtotal: multiPeriodServiceStartResult.totalCharge,
+        credits: 0,
+        total: multiPeriodServiceStartResult.totalCharge,
+        periodStart: multiPeriodServiceStartResult.periods[0]?.periodStart || state.changeDate,
+        periodEnd: multiPeriodServiceStartResult.periods[multiPeriodServiceStartResult.periods.length - 1]?.periodEnd || state.periodEnd,
+      };
+    }
+
+    // Service Start: Single period charge
     if (scenario === 'serviceStart' && serviceStartResult) {
       return {
         lines: [
@@ -318,7 +378,7 @@ export function useProration() {
     }
 
     return null;
-  }, [state, planChangeResult, multiPeriodResult, serviceEndResult, serviceStartResult, validationErrors, isMultiPeriod, scenario]);
+  }, [state, planChangeResult, multiPeriodResult, serviceEndResult, serviceStartResult, multiPeriodServiceEndResult, multiPeriodServiceStartResult, validationErrors, isMultiPeriod, scenario]);
 
   return {
     ...state,
@@ -328,6 +388,8 @@ export function useProration() {
     showNextPlan,
     serviceEndResult,
     serviceStartResult,
+    multiPeriodServiceEndResult,
+    multiPeriodServiceStartResult,
     planChangeResult,
     multiPeriodResult,
     invoice,
