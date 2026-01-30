@@ -5,16 +5,13 @@ import { InvoicePreview } from './components/InvoicePreview';
 
 function App() {
   const {
-    calculationType,
     periodStart,
     periodEnd,
-    serviceStart,
     billingCycle,
     plan,
     changeDate,
     newPlan,
     isMultiPeriod,
-    prorationResult,
     planChangeResult,
     multiPeriodResult,
     invoice,
@@ -22,8 +19,6 @@ function App() {
     billingAnchorDay,
     updateBillingCycle,
     updatePeriodStart,
-    updateServiceStart,
-    updateCalculationType,
     updateChangeDate,
     updatePlanPrice,
     updateNewPlanPrice,
@@ -42,16 +37,6 @@ function App() {
               <h1 className="text-2xl font-bold text-gray-900">ProrateMate</h1>
               <p className="text-sm text-gray-500">Enterprise billing proration calculator</p>
             </div>
-            <div className="flex items-center gap-4">
-              <a
-                href="https://github.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                Documentation
-              </a>
-            </div>
           </div>
         </div>
       </header>
@@ -61,22 +46,17 @@ function App() {
         {/* Billing Configuration */}
         <div className="mb-8">
           <ProrationForm
-            calculationType={calculationType}
             periodStart={periodStart}
-            serviceStart={serviceStart}
             billingCycle={billingCycle}
             planName={plan.name}
             planPrice={plan.price}
             changeDate={changeDate}
             newPlanName={newPlan.name}
             newPlanPrice={newPlan.price}
-            periodEnd={periodEnd}
             validationErrors={validationErrors}
             billingAnchorDay={billingAnchorDay}
             isMultiPeriod={isMultiPeriod}
-            onCalculationTypeChange={updateCalculationType}
             onPeriodStartChange={updatePeriodStart}
-            onServiceStartChange={updateServiceStart}
             onBillingCycleChange={updateBillingCycle}
             onPlanNameChange={updatePlanName}
             onPlanPriceChange={updatePlanPrice}
@@ -92,12 +72,9 @@ function App() {
           <TimelineBar
             periodStart={periodStart}
             periodEnd={periodEnd}
-            serviceStart={serviceStart}
             changeDate={changeDate}
-            prorationResult={prorationResult}
             planChangeResult={planChangeResult}
             multiPeriodResult={multiPeriodResult}
-            calculationType={calculationType}
             planPrice={plan.price}
             newPlanPrice={newPlan.price}
             plan={plan}
@@ -112,52 +89,11 @@ function App() {
         </div>
 
         {/* Calculation Details */}
-        {(prorationResult || planChangeResult || multiPeriodResult) && (
+        {(planChangeResult || multiPeriodResult) && (
           <div className="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Calculation Breakdown</h3>
 
-            {calculationType === 'lateStart' && prorationResult && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Daily Rate</div>
-                  <div className="text-xl font-semibold text-gray-900">
-                    ${prorationResult.dailyRate.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    ${plan.price} / {prorationResult.totalDaysInPeriod} days
-                  </div>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Prorated Days</div>
-                  <div className="text-xl font-semibold text-gray-900">
-                    {prorationResult.proratedDays} days
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    of {prorationResult.totalDaysInPeriod} total
-                  </div>
-                </div>
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-blue-600 mb-1">Prorated Amount</div>
-                  <div className="text-xl font-semibold text-blue-700">
-                    ${prorationResult.proratedAmount.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-blue-400 mt-1">
-                    {prorationResult.percentageUsed}% of full price
-                  </div>
-                </div>
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <div className="text-sm text-green-600 mb-1">Savings</div>
-                  <div className="text-xl font-semibold text-green-700">
-                    ${prorationResult.credit.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-green-400 mt-1">
-                    vs. full period charge
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {calculationType === 'planChange' && planChangeResult && !isMultiPeriod && (
+            {planChangeResult && !isMultiPeriod && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-amber-50 rounded-lg">
                   <div className="text-sm text-amber-600 mb-1">Old Plan Usage</div>
@@ -200,7 +136,7 @@ function App() {
               </div>
             )}
 
-            {calculationType === 'planChange' && multiPeriodResult && isMultiPeriod && (
+            {multiPeriodResult && isMultiPeriod && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-500 mb-1">Periods Affected</div>

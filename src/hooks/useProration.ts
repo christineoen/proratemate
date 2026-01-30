@@ -3,16 +3,13 @@ import { startOfMonth, endOfMonth, getDate, isBefore } from 'date-fns';
 import type {
   BillingCycle,
   Plan,
-  ProrationResult,
   PlanChangeResult,
   Invoice,
   MultiPeriodResult,
 } from '../types/billing';
 import {
   calculatePeriodEnd,
-  calculateProration,
   calculatePlanChange,
-  generateLateStartInvoice,
   generatePlanChangeInvoice,
   validateDates,
   calculateMultiPeriodAdjustment,
@@ -20,13 +17,9 @@ import {
   validateMultiPeriodInput,
 } from '../utils/proration';
 
-export type CalculationType = 'lateStart' | 'planChange';
-
 interface UseProrationState {
-  calculationType: CalculationType;
   periodStart: Date;
   periodEnd: Date;
-  serviceStart: Date;
   billingCycle: BillingCycle;
   plan: Plan;
   changeDate: Date;
@@ -45,10 +38,8 @@ export function useProration() {
   const defaultPeriodStart = startOfMonth(today);
 
   const [state, setState] = useState<UseProrationState>({
-    calculationType: 'lateStart',
     periodStart: defaultPeriodStart,
     periodEnd: endOfMonth(defaultPeriodStart),
-    serviceStart: today,
     billingCycle: 'monthly',
     plan: DEFAULT_PLANS[0],
     changeDate: today,
@@ -58,9 +49,8 @@ export function useProration() {
 
   // Determine if this is a multi-period scenario (plan change date is before current period)
   const isMultiPeriod = useMemo(() => {
-    if (state.calculationType !== 'planChange') return false;
     return isBefore(state.changeDate, state.periodStart);
-  }, [state.calculationType, state.changeDate, state.periodStart]);
+  }, [state.changeDate, state.periodStart]);
 
   // Update period end when billing cycle or period start changes
   const updateBillingCycle = useCallback((cycle: BillingCycle) => {
@@ -83,14 +73,6 @@ export function useProration() {
       billingAnchorDay: getDate(date),
     }));
   }, [state.billingCycle]);
-
-  const updateServiceStart = useCallback((date: Date) => {
-    setState(prev => ({ ...prev, serviceStart: date }));
-  }, []);
-
-  const updateCalculationType = useCallback((type: CalculationType) => {
-    setState(prev => ({ ...prev, calculationType: type }));
-  }, []);
 
   const updatePlan = useCallback((plan: Plan) => {
     setState(prev => ({ ...prev, plan }));
@@ -138,57 +120,32 @@ export function useProration() {
 
   // Validate dates
   const validationErrors = useMemo(() => {
-    if (state.calculationType === 'lateStart') {
+    if (isMultiPeriod) {
+      return validateMultiPeriodInput({
+        effectiveChangeDate: state.changeDate,
+        currentDate: state.periodEnd,
+        billingCycle: state.billingCycle,
+        billingAnchorDay: state.billingAnchorDay,
+        oldPlan: state.plan,
+        newPlan: state.newPlan,
+      });
+    } else {
       return validateDates({
         periodStart: state.periodStart,
         periodEnd: state.periodEnd,
-        serviceStart: state.serviceStart,
+        serviceStart: state.periodStart,
         plan: state.plan,
+        changeDate: state.changeDate,
+        newPlan: state.newPlan,
       });
-    } else if (state.calculationType === 'planChange') {
-      if (isMultiPeriod) {
-        return validateMultiPeriodInput({
-          effectiveChangeDate: state.changeDate,
-          currentDate: state.periodEnd,
-          billingCycle: state.billingCycle,
-          billingAnchorDay: state.billingAnchorDay,
-          oldPlan: state.plan,
-          newPlan: state.newPlan,
-        });
-      } else {
-        return validateDates({
-          periodStart: state.periodStart,
-          periodEnd: state.periodEnd,
-          serviceStart: state.periodStart,
-          plan: state.plan,
-          changeDate: state.changeDate,
-          newPlan: state.newPlan,
-        });
-      }
     }
-    return [];
   }, [state, isMultiPeriod]);
-
-  // Calculate proration result (late start only)
-  const prorationResult: ProrationResult | null = useMemo(() => {
-    if (validationErrors.length > 0) return null;
-
-    if (state.calculationType === 'lateStart') {
-      return calculateProration({
-        periodStart: state.periodStart,
-        periodEnd: state.periodEnd,
-        serviceStart: state.serviceStart,
-        plan: state.plan,
-      });
-    }
-    return null;
-  }, [state, validationErrors]);
 
   // Calculate plan change result (single period only)
   const planChangeResult: PlanChangeResult | null = useMemo(() => {
     if (validationErrors.length > 0) return null;
 
-    if (state.calculationType === 'planChange' && !isMultiPeriod) {
+    if (!isMultiPeriod) {
       return calculatePlanChange(
         state.periodStart,
         state.periodEnd,
@@ -204,7 +161,7 @@ export function useProration() {
   const multiPeriodResult: MultiPeriodResult | null = useMemo(() => {
     if (validationErrors.length > 0) return null;
 
-    if (state.calculationType === 'planChange' && isMultiPeriod) {
+    if (isMultiPeriod) {
       return calculateMultiPeriodAdjustment({
         effectiveChangeDate: state.changeDate,
         currentDate: state.periodEnd,
@@ -221,47 +178,34 @@ export function useProration() {
   const invoice: Invoice | null = useMemo(() => {
     if (validationErrors.length > 0) return null;
 
-    if (state.calculationType === 'lateStart' && prorationResult) {
-      return generateLateStartInvoice(
+    if (isMultiPeriod && multiPeriodResult) {
+      return generateMultiPeriodInvoice(
         {
-          periodStart: state.periodStart,
-          periodEnd: state.periodEnd,
-          serviceStart: state.serviceStart,
-          plan: state.plan,
+          effectiveChangeDate: state.changeDate,
+          currentDate: state.periodEnd,
+          billingCycle: state.billingCycle,
+          billingAnchorDay: state.billingAnchorDay,
+          oldPlan: state.plan,
+          newPlan: state.newPlan,
         },
-        prorationResult
+        multiPeriodResult
       );
-    } else if (state.calculationType === 'planChange') {
-      if (isMultiPeriod && multiPeriodResult) {
-        return generateMultiPeriodInvoice(
-          {
-            effectiveChangeDate: state.changeDate,
-            currentDate: state.periodEnd,
-            billingCycle: state.billingCycle,
-            billingAnchorDay: state.billingAnchorDay,
-            oldPlan: state.plan,
-            newPlan: state.newPlan,
-          },
-          multiPeriodResult
-        );
-      } else if (planChangeResult) {
-        return generatePlanChangeInvoice(
-          state.periodStart,
-          state.periodEnd,
-          state.changeDate,
-          state.plan,
-          state.newPlan,
-          planChangeResult
-        );
-      }
+    } else if (planChangeResult) {
+      return generatePlanChangeInvoice(
+        state.periodStart,
+        state.periodEnd,
+        state.changeDate,
+        state.plan,
+        state.newPlan,
+        planChangeResult
+      );
     }
     return null;
-  }, [state, prorationResult, planChangeResult, multiPeriodResult, validationErrors, isMultiPeriod]);
+  }, [state, planChangeResult, multiPeriodResult, validationErrors, isMultiPeriod]);
 
   return {
     ...state,
     isMultiPeriod,
-    prorationResult,
     planChangeResult,
     multiPeriodResult,
     invoice,
@@ -269,8 +213,6 @@ export function useProration() {
     availablePlans: DEFAULT_PLANS,
     updateBillingCycle,
     updatePeriodStart,
-    updateServiceStart,
-    updateCalculationType,
     updatePlan,
     updateNewPlan,
     updateChangeDate,
