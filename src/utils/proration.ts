@@ -465,8 +465,8 @@ export function validateMultiPeriodInput(input: MultiPeriodInput): string[] {
     errors.push('Effective change date must be before or equal to current date');
   }
 
-  if (input.billingAnchorDay < 1 || input.billingAnchorDay > 28) {
-    errors.push('Billing anchor day must be between 1 and 28');
+  if (input.billingAnchorDay < 1 || input.billingAnchorDay > 31) {
+    errors.push('Billing anchor day must be between 1 and 31');
   }
 
   if (input.oldPlan.price < 0) {

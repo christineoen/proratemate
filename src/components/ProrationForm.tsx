@@ -242,14 +242,14 @@ export function ProrationForm({
               onChange={(e) => onBillingAnchorDayChange(parseInt(e.target.value, 10))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
             >
-              {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                 <option key={day} value={day}>
-                  {day}{day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'} of each month
+                  {day}{day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'} of each month
                 </option>
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              The day billing periods start (limited to 1-28 for consistency)
+              The day billing periods start (for 29-31, uses last day of shorter months)
             </p>
           </div>
 
