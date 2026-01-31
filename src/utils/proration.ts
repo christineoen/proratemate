@@ -5,20 +5,19 @@ import {
   isAfter,
   isBefore,
   getDaysInMonth,
+  isSameDay,
 } from 'date-fns';
 import type {
   BillingCycle,
   Plan,
-  ProrationInput,
-  ProrationResult,
-  PlanChangeResult,
   InvoiceLine,
   Invoice,
-  MultiPeriodInput,
-  MultiPeriodResult,
-  PeriodAdjustment,
-  MultiPeriodServiceEndResult,
-  MultiPeriodServiceStartResult,
+  ServiceEndPeriod,
+  ServiceEndResult,
+  ServiceStartPeriod,
+  ServiceStartResult,
+  PlanChangePeriod,
+  PlanChangeResult,
 } from '../types/billing';
 import { CYCLE_MONTHS, SECONDS_PER_DAY } from '../types/billing';
 
@@ -52,195 +51,6 @@ export function calculateSecondlyRate(price: number, secondsInPeriod: number): n
 }
 
 /**
- * Main proration calculation for late start billing
- */
-export function calculateProration(input: ProrationInput): ProrationResult {
-  const { periodStart, periodEnd, serviceStart, plan } = input;
-
-  const totalSecondsInPeriod = calculateSecondsInPeriod(periodStart, periodEnd);
-
-  // Ensure service start is within the period
-  const effectiveServiceStart = isBefore(serviceStart, periodStart)
-    ? periodStart
-    : serviceStart;
-
-  const effectiveServiceEnd = input.serviceEnd && isBefore(input.serviceEnd, periodEnd)
-    ? input.serviceEnd
-    : periodEnd;
-
-  const proratedSeconds = differenceInSeconds(effectiveServiceEnd, effectiveServiceStart);
-  const secondlyRate = calculateSecondlyRate(plan.price, totalSecondsInPeriod);
-  const proratedAmount = Math.round(secondlyRate * proratedSeconds * 100) / 100;
-  const percentageUsed = (proratedSeconds / totalSecondsInPeriod) * 100;
-  const credit = Math.round((plan.price - proratedAmount) * 100) / 100;
-
-  // Calculate display values
-  const totalDaysInPeriod = secondsToDays(totalSecondsInPeriod);
-  const proratedDays = secondsToDays(proratedSeconds);
-  const dailyRate = plan.price / totalDaysInPeriod;
-
-  return {
-    totalSecondsInPeriod,
-    proratedSeconds,
-    secondlyRate,
-    proratedAmount,
-    fullAmount: plan.price,
-    credit,
-    percentageUsed: Math.round(percentageUsed * 100) / 100,
-    // Display values
-    totalDaysInPeriod: Math.round(totalDaysInPeriod * 100) / 100,
-    proratedDays: Math.round(proratedDays * 100) / 100,
-    dailyRate: Math.round(dailyRate * 100) / 100,
-  };
-}
-
-/**
- * Calculate proration for plan changes (upgrades/downgrades)
- */
-export function calculatePlanChange(
-  periodStart: Date,
-  periodEnd: Date,
-  changeDate: Date,
-  oldPlan: Plan,
-  newPlan: Plan
-): PlanChangeResult {
-  const totalSecondsInPeriod = calculateSecondsInPeriod(periodStart, periodEnd);
-
-  // Seconds used on old plan (from period start to plan change date)
-  const oldPlanSecondsUsed = differenceInSeconds(changeDate, periodStart);
-
-  // Seconds remaining on new plan (from plan change date to period end)
-  const newPlanSecondsRemaining = differenceInSeconds(periodEnd, changeDate);
-
-  // Calculate per-second rates
-  const oldSecondlyRate = calculateSecondlyRate(oldPlan.price, totalSecondsInPeriod);
-  const newSecondlyRate = calculateSecondlyRate(newPlan.price, totalSecondsInPeriod);
-
-  // Old plan: credit for unused portion
-  const oldPlanUsedAmount = oldSecondlyRate * oldPlanSecondsUsed;
-  const oldPlanCredit = Math.round((oldPlan.price - oldPlanUsedAmount) * 100) / 100;
-
-  // New plan: charge for remaining portion
-  const newPlanCharge = Math.round(newSecondlyRate * newPlanSecondsRemaining * 100) / 100;
-
-  // Net amount (positive = charge, negative = refund)
-  const netAmount = Math.round((newPlanCharge - oldPlanCredit) * 100) / 100;
-
-  const isUpgrade = newPlan.price > oldPlan.price;
-
-  // Calculate display values
-  const oldPlanDaysUsed = secondsToDays(oldPlanSecondsUsed);
-  const newPlanDaysRemaining = secondsToDays(newPlanSecondsRemaining);
-
-  return {
-    oldPlanCredit,
-    oldPlanSecondsUsed,
-    newPlanCharge,
-    newPlanSecondsRemaining,
-    netAmount,
-    isUpgrade,
-    // Display values
-    oldPlanDaysUsed: Math.round(oldPlanDaysUsed * 100) / 100,
-    newPlanDaysRemaining: Math.round(newPlanDaysRemaining * 100) / 100,
-  };
-}
-
-/**
- * Generate invoice line items based on proration type
- */
-export function generateInvoiceLines(
-  prorationResult: ProrationResult,
-  plan: Plan,
-  isLateStart: boolean = true
-): InvoiceLine[] {
-  const lines: InvoiceLine[] = [];
-
-  if (isLateStart) {
-    lines.push({
-      description: `${plan.name} - Prorated (${prorationResult.proratedDays} of ${prorationResult.totalDaysInPeriod} days)`,
-      quantity: 1,
-      unitPrice: prorationResult.proratedAmount,
-      amount: prorationResult.proratedAmount,
-      isCredit: false,
-    });
-  } else {
-    lines.push({
-      description: `${plan.name} - Full Period`,
-      quantity: 1,
-      unitPrice: plan.price,
-      amount: plan.price,
-      isCredit: false,
-    });
-  }
-
-  return lines;
-}
-
-/**
- * Generate invoice for plan change scenario
- */
-export function generatePlanChangeInvoice(
-  periodStart: Date,
-  periodEnd: Date,
-  _changeDate: Date,
-  oldPlan: Plan,
-  newPlan: Plan,
-  planChangeResult: PlanChangeResult
-): Invoice {
-  const lines: InvoiceLine[] = [];
-
-  // Credit for unused portion of old plan
-  lines.push({
-    description: `${oldPlan.name} - Credit for unused portion (${planChangeResult.newPlanDaysRemaining} days)`,
-    quantity: 1,
-    unitPrice: -planChangeResult.oldPlanCredit,
-    amount: -planChangeResult.oldPlanCredit,
-    isCredit: true,
-  });
-
-  // Charge for remaining portion of new plan
-  lines.push({
-    description: `${newPlan.name} - Prorated charge (${planChangeResult.newPlanDaysRemaining} days)`,
-    quantity: 1,
-    unitPrice: planChangeResult.newPlanCharge,
-    amount: planChangeResult.newPlanCharge,
-    isCredit: false,
-  });
-
-  const credits = planChangeResult.oldPlanCredit;
-  const subtotal = planChangeResult.newPlanCharge;
-  const total = planChangeResult.netAmount;
-
-  return {
-    lines,
-    subtotal,
-    credits,
-    total,
-    periodStart,
-    periodEnd,
-  };
-}
-
-/**
- * Generate invoice for late start scenario
- */
-export function generateLateStartInvoice(
-  input: ProrationInput,
-  prorationResult: ProrationResult
-): Invoice {
-  const lines = generateInvoiceLines(prorationResult, input.plan, true);
-
-  return {
-    lines,
-    subtotal: prorationResult.proratedAmount,
-    credits: 0,
-    total: prorationResult.proratedAmount,
-    periodStart: input.periodStart,
-    periodEnd: input.periodEnd,
-  };
-}
-
-/**
  * Format currency for display
  */
 export function formatCurrency(amount: number): string {
@@ -248,36 +58,6 @@ export function formatCurrency(amount: number): string {
     style: 'currency',
     currency: 'USD',
   }).format(amount);
-}
-
-/**
- * Validate proration input dates
- */
-export function validateDates(input: ProrationInput): string[] {
-  const errors: string[] = [];
-
-  if (isAfter(input.periodStart, input.periodEnd)) {
-    errors.push('Period start date must be before period end date');
-  }
-
-  if (isAfter(input.serviceStart, input.periodEnd)) {
-    errors.push('Service start date must be before period end date');
-  }
-
-  if (input.serviceEnd && isAfter(input.serviceStart, input.serviceEnd)) {
-    errors.push('Service start date must be before service end date');
-  }
-
-  if (input.changeDate) {
-    if (isBefore(input.changeDate, input.periodStart)) {
-      errors.push('Plan change date must be after period start date');
-    }
-    if (isAfter(input.changeDate, input.periodEnd)) {
-      errors.push('Plan change date must be before period end date');
-    }
-  }
-
-  return errors;
 }
 
 /**
@@ -290,20 +70,20 @@ function getBillingAnchorDate(year: number, month: number, anchorDay: number): D
 }
 
 /**
- * Generate all billing periods between effective plan change date and current date
+ * Generate all billing periods that contain or follow the effective date up to and including the current period
  */
 export function generateBillingPeriods(
-  effectiveChangeDate: Date,
-  currentDate: Date,
+  effectiveDate: Date,
+  currentPeriodEnd: Date,
   billingCycle: BillingCycle,
   billingAnchorDay: number
 ): { periodStart: Date; periodEnd: Date }[] {
   const periods: { periodStart: Date; periodEnd: Date }[] = [];
   const cycleMonths = CYCLE_MONTHS[billingCycle];
 
-  // Find the billing period that contains the effective plan change date
-  const effectiveYear = effectiveChangeDate.getFullYear();
-  const effectiveMonth = effectiveChangeDate.getMonth();
+  // Find the billing period that contains the effective date
+  const effectiveYear = effectiveDate.getFullYear();
+  const effectiveMonth = effectiveDate.getMonth();
 
   // Start from a period that definitely contains or precedes the effective date
   let searchYear = effectiveYear;
@@ -313,7 +93,7 @@ export function generateBillingPeriods(
   let periodStart = getBillingAnchorDate(searchYear, searchMonth, billingAnchorDay);
 
   // If period start is after effective date, go back one cycle
-  while (isAfter(periodStart, effectiveChangeDate)) {
+  while (isAfter(periodStart, effectiveDate)) {
     searchMonth -= cycleMonths;
     if (searchMonth < 0) {
       searchYear -= 1;
@@ -323,17 +103,20 @@ export function generateBillingPeriods(
   }
 
   // Now iterate forward from this period
-  // Stop when periodStart reaches or passes currentDate (which is the current period's end)
-  while (isBefore(periodStart, currentDate)) {
+  // Include periods up to and including the one that contains currentPeriodEnd
+  while (isBefore(periodStart, currentPeriodEnd) || isSameDay(periodStart, currentPeriodEnd)) {
     const periodEnd = calculatePeriodEnd(periodStart, billingCycle);
 
     // Only include periods that overlap with the affected range
-    if (isAfter(periodEnd, effectiveChangeDate) || periodEnd.getTime() === effectiveChangeDate.getTime()) {
+    if (isAfter(periodEnd, effectiveDate) || isSameDay(periodEnd, effectiveDate)) {
       periods.push({ periodStart, periodEnd });
     }
 
     // Move to next period
     periodStart = periodEnd;
+
+    // Stop if we've passed the current period end
+    if (isAfter(periodStart, currentPeriodEnd)) break;
 
     // Safety check to prevent infinite loops
     if (periods.length > 100) break;
@@ -343,212 +126,52 @@ export function generateBillingPeriods(
 }
 
 /**
- * Calculate adjustment for a single billing period
+ * Calculate service end (cancellation) for all affected periods
  */
-export function calculatePeriodAdjustment(
-  periodStart: Date,
-  periodEnd: Date,
-  effectiveChangeDate: Date,
-  _currentDate: Date,
-  oldPlan: Plan,
-  newPlan: Plan,
-  periodNumber: number
-): PeriodAdjustment {
-  const secondsInPeriod = calculateSecondsInPeriod(periodStart, periodEnd);
-
-  // Determine the affected portion of this period
-  // For advance billing, the full period is affected once it's included (customer already paid for it)
-  const effectiveStart = isAfter(effectiveChangeDate, periodStart) ? effectiveChangeDate : periodStart;
-  const effectiveEnd = periodEnd; // Always go to period end for advance billing
-
-  const secondsAffected = Math.max(0, differenceInSeconds(effectiveEnd, effectiveStart));
-  const isPartialPeriod = secondsAffected < secondsInPeriod;
-
-  // Determine where the unaffected portion falls
-  // For advance billing, partial periods only occur at the start (first period with effectiveChangeDate mid-period)
-  let partialPosition: 'start' | 'end' | 'none' = 'none';
-  if (isPartialPeriod && isAfter(effectiveChangeDate, periodStart)) {
-    partialPosition = 'start';
-  }
-
-  // Calculate per-second rates
-  const oldSecondlyRate = calculateSecondlyRate(oldPlan.price, secondsInPeriod);
-  const newSecondlyRate = calculateSecondlyRate(newPlan.price, secondsInPeriod);
-
-  // Old plan: what was charged for the affected seconds
-  const oldPlanCharge = Math.round(oldSecondlyRate * secondsAffected * 100) / 100;
-
-  // Credit from old plan (the amount they paid but shouldn't have)
-  const creditFromOldPlan = oldPlanCharge;
-
-  // New plan: what should have been charged for the affected seconds
-  const chargeForNewPlan = Math.round(newSecondlyRate * secondsAffected * 100) / 100;
-
-  // Net adjustment for this period (positive = customer owes, negative = refund)
-  const netAdjustment = Math.round((chargeForNewPlan - creditFromOldPlan) * 100) / 100;
-
-  // Calculate display values
-  const daysInPeriod = secondsToDays(secondsInPeriod);
-  const daysAffected = secondsToDays(secondsAffected);
-
-  return {
-    periodNumber,
-    periodStart,
-    periodEnd,
-    isPartialPeriod,
-    partialPosition,
-    secondsInPeriod,
-    secondsAffected,
-    oldPlanCharge,
-    creditFromOldPlan,
-    chargeForNewPlan,
-    netAdjustment,
-    // Display values
-    daysInPeriod: Math.round(daysInPeriod * 100) / 100,
-    daysAffected: Math.round(daysAffected * 100) / 100,
-  };
-}
-
-/**
- * Main multi-period adjustment calculation
- */
-export function calculateMultiPeriodAdjustment(input: MultiPeriodInput): MultiPeriodResult {
-  const { effectiveChangeDate, currentDate, billingCycle, billingAnchorDay, oldPlan, newPlan } = input;
-
-  const billingPeriods = generateBillingPeriods(
-    effectiveChangeDate,
-    currentDate,
-    billingCycle,
-    billingAnchorDay
-  );
-
-  const periods: PeriodAdjustment[] = billingPeriods.map((period, index) =>
-    calculatePeriodAdjustment(
-      period.periodStart,
-      period.periodEnd,
-      effectiveChangeDate,
-      currentDate,
-      oldPlan,
-      newPlan,
-      index + 1
-    )
-  );
-
-  const totalCredits = periods.reduce((sum, p) => sum + p.creditFromOldPlan, 0);
-  const totalCharges = periods.reduce((sum, p) => sum + p.chargeForNewPlan, 0);
-  const netAdjustment = Math.round((totalCharges - totalCredits) * 100) / 100;
-
-  return {
-    periods,
-    totalPeriodsAffected: periods.length,
-    totalCredits: Math.round(totalCredits * 100) / 100,
-    totalCharges: Math.round(totalCharges * 100) / 100,
-    netAdjustment,
-    isUpgrade: newPlan.price > oldPlan.price,
-  };
-}
-
-/**
- * Generate invoice with per-period line items for multi-period adjustment
- */
-export function generateMultiPeriodInvoice(
-  input: MultiPeriodInput,
-  result: MultiPeriodResult
-): Invoice {
-  const lines: InvoiceLine[] = [];
-
-  // Add line items for each period
-  result.periods.forEach((period) => {
-    // Credit line for old plan
-    lines.push({
-      description: `${input.oldPlan.name} - Credit for Period ${period.periodNumber} (${period.daysAffected} days)`,
-      quantity: 1,
-      unitPrice: -period.creditFromOldPlan,
-      amount: -period.creditFromOldPlan,
-      isCredit: true,
-    });
-
-    // Charge line for new plan
-    lines.push({
-      description: `${input.newPlan.name} - Charge for Period ${period.periodNumber} (${period.daysAffected} days)`,
-      quantity: 1,
-      unitPrice: period.chargeForNewPlan,
-      amount: period.chargeForNewPlan,
-      isCredit: false,
-    });
-  });
-
-  return {
-    lines,
-    subtotal: result.totalCharges,
-    credits: result.totalCredits,
-    total: result.netAdjustment,
-    periodStart: result.periods[0]?.periodStart || input.effectiveChangeDate,
-    periodEnd: result.periods[result.periods.length - 1]?.periodEnd || input.currentDate,
-  };
-}
-
-/**
- * Validate multi-period input
- */
-export function validateMultiPeriodInput(input: MultiPeriodInput): string[] {
-  const errors: string[] = [];
-
-  if (isAfter(input.effectiveChangeDate, input.currentDate)) {
-    errors.push('Effective plan change date must be before or equal to current date');
-  }
-
-  if (input.billingAnchorDay < 1 || input.billingAnchorDay > 31) {
-    errors.push('Billing anchor day must be between 1 and 31');
-  }
-
-  if (input.oldPlan.price < 0) {
-    errors.push('Old plan price must be non-negative');
-  }
-
-  if (input.newPlan.price < 0) {
-    errors.push('New plan price must be non-negative');
-  }
-
-  return errors;
-}
-
-/**
- * Calculate multi-period service end (cancellation with retroactive effective date)
- */
-export function calculateMultiPeriodServiceEnd(
+export function calculateServiceEnd(
   effectiveEndDate: Date,
-  currentDate: Date,
+  currentPeriodEnd: Date,
   billingCycle: BillingCycle,
   billingAnchorDay: number,
   plan: Plan
-): MultiPeriodServiceEndResult {
+): ServiceEndResult {
   const billingPeriods = generateBillingPeriods(
     effectiveEndDate,
-    currentDate,
+    currentPeriodEnd,
     billingCycle,
     billingAnchorDay
   );
 
-  const periods = billingPeriods.map((period, index) => {
+  const periods: ServiceEndPeriod[] = billingPeriods.map((period, index) => {
     const secondsInPeriod = calculateSecondsInPeriod(period.periodStart, period.periodEnd);
     const daysInPeriod = Math.round(secondsToDays(secondsInPeriod) * 100) / 100;
 
     // Determine the effective end within this period
-    const effectiveEnd = isAfter(effectiveEndDate, period.periodStart) ? effectiveEndDate : period.periodStart;
-    const secondsCredited = differenceInSeconds(period.periodEnd, effectiveEnd);
+    const isFirstPeriod = index === 0;
+    const effectiveEndInPeriod = isAfter(effectiveEndDate, period.periodStart) ? effectiveEndDate : period.periodStart;
+
+    const secondsUsed = differenceInSeconds(effectiveEndInPeriod, period.periodStart);
+    const secondsCredited = secondsInPeriod - secondsUsed;
+
+    const daysUsed = Math.round(secondsToDays(secondsUsed) * 100) / 100;
     const daysCredited = Math.round(secondsToDays(secondsCredited) * 100) / 100;
 
     const secondlyRate = calculateSecondlyRate(plan.price, secondsInPeriod);
     const credit = Math.round(secondlyRate * secondsCredited * 100) / 100;
+
+    const isPartialPeriod = secondsUsed > 0 && secondsCredited > 0;
+    const partialPosition: 'start' | 'end' | 'none' = isPartialPeriod && isFirstPeriod ? 'start' : 'none';
 
     return {
       periodNumber: index + 1,
       periodStart: period.periodStart,
       periodEnd: period.periodEnd,
       daysInPeriod,
+      daysUsed,
       daysCredited,
       credit,
+      isPartialPeriod,
+      partialPosition,
     };
   });
 
@@ -562,41 +185,52 @@ export function calculateMultiPeriodServiceEnd(
 }
 
 /**
- * Calculate multi-period service start (late start with retroactive effective date)
+ * Calculate service start for all affected periods
  */
-export function calculateMultiPeriodServiceStart(
+export function calculateServiceStart(
   effectiveStartDate: Date,
-  currentDate: Date,
+  currentPeriodEnd: Date,
   billingCycle: BillingCycle,
   billingAnchorDay: number,
   plan: Plan
-): MultiPeriodServiceStartResult {
+): ServiceStartResult {
   const billingPeriods = generateBillingPeriods(
     effectiveStartDate,
-    currentDate,
+    currentPeriodEnd,
     billingCycle,
     billingAnchorDay
   );
 
-  const periods = billingPeriods.map((period, index) => {
+  const periods: ServiceStartPeriod[] = billingPeriods.map((period, index) => {
     const secondsInPeriod = calculateSecondsInPeriod(period.periodStart, period.periodEnd);
     const daysInPeriod = Math.round(secondsToDays(secondsInPeriod) * 100) / 100;
 
     // Determine the effective start within this period
-    const effectiveStart = isAfter(effectiveStartDate, period.periodStart) ? effectiveStartDate : period.periodStart;
-    const secondsCharged = differenceInSeconds(period.periodEnd, effectiveStart);
+    const isFirstPeriod = index === 0;
+    const effectiveStartInPeriod = isAfter(effectiveStartDate, period.periodStart) ? effectiveStartDate : period.periodStart;
+
+    const secondsInactive = differenceInSeconds(effectiveStartInPeriod, period.periodStart);
+    const secondsCharged = secondsInPeriod - secondsInactive;
+
+    const daysInactive = Math.round(secondsToDays(secondsInactive) * 100) / 100;
     const daysCharged = Math.round(secondsToDays(secondsCharged) * 100) / 100;
 
     const secondlyRate = calculateSecondlyRate(plan.price, secondsInPeriod);
     const charge = Math.round(secondlyRate * secondsCharged * 100) / 100;
+
+    const isPartialPeriod = secondsInactive > 0 && secondsCharged > 0;
+    const partialPosition: 'start' | 'end' | 'none' = isPartialPeriod && isFirstPeriod ? 'start' : 'none';
 
     return {
       periodNumber: index + 1,
       periodStart: period.periodStart,
       periodEnd: period.periodEnd,
       daysInPeriod,
+      daysInactive,
       daysCharged,
       charge,
+      isPartialPeriod,
+      partialPosition,
     };
   });
 
@@ -606,5 +240,173 @@ export function calculateMultiPeriodServiceStart(
     periods,
     totalPeriodsAffected: periods.length,
     totalCharge,
+  };
+}
+
+/**
+ * Calculate plan change for all affected periods
+ */
+export function calculatePlanChange(
+  effectiveChangeDate: Date,
+  currentPeriodEnd: Date,
+  billingCycle: BillingCycle,
+  billingAnchorDay: number,
+  oldPlan: Plan,
+  newPlan: Plan
+): PlanChangeResult {
+  const billingPeriods = generateBillingPeriods(
+    effectiveChangeDate,
+    currentPeriodEnd,
+    billingCycle,
+    billingAnchorDay
+  );
+
+  const periods: PlanChangePeriod[] = billingPeriods.map((period, index) => {
+    const secondsInPeriod = calculateSecondsInPeriod(period.periodStart, period.periodEnd);
+    const daysInPeriod = Math.round(secondsToDays(secondsInPeriod) * 100) / 100;
+
+    // Determine the effective change within this period
+    const isFirstPeriod = index === 0;
+    const effectiveChangeInPeriod = isAfter(effectiveChangeDate, period.periodStart) ? effectiveChangeDate : period.periodStart;
+
+    const secondsOnOldPlan = differenceInSeconds(effectiveChangeInPeriod, period.periodStart);
+    const secondsAffected = secondsInPeriod - secondsOnOldPlan;
+
+    const daysOnOldPlan = Math.round(secondsToDays(secondsOnOldPlan) * 100) / 100;
+    const daysAffected = Math.round(secondsToDays(secondsAffected) * 100) / 100;
+
+    // Calculate per-second rates
+    const oldSecondlyRate = calculateSecondlyRate(oldPlan.price, secondsInPeriod);
+    const newSecondlyRate = calculateSecondlyRate(newPlan.price, secondsInPeriod);
+
+    // Credit from old plan for affected portion
+    const creditFromOldPlan = Math.round(oldSecondlyRate * secondsAffected * 100) / 100;
+
+    // Charge for new plan for affected portion
+    const chargeForNewPlan = Math.round(newSecondlyRate * secondsAffected * 100) / 100;
+
+    // Net adjustment (positive = customer owes, negative = refund)
+    const netAdjustment = Math.round((chargeForNewPlan - creditFromOldPlan) * 100) / 100;
+
+    const isPartialPeriod = secondsOnOldPlan > 0 && secondsAffected > 0;
+    const partialPosition: 'start' | 'end' | 'none' = isPartialPeriod && isFirstPeriod ? 'start' : 'none';
+
+    return {
+      periodNumber: index + 1,
+      periodStart: period.periodStart,
+      periodEnd: period.periodEnd,
+      isPartialPeriod,
+      partialPosition,
+      daysInPeriod,
+      daysOnOldPlan,
+      daysAffected,
+      creditFromOldPlan,
+      chargeForNewPlan,
+      netAdjustment,
+    };
+  });
+
+  const totalCredits = Math.round(periods.reduce((sum, p) => sum + p.creditFromOldPlan, 0) * 100) / 100;
+  const totalCharges = Math.round(periods.reduce((sum, p) => sum + p.chargeForNewPlan, 0) * 100) / 100;
+  const netAdjustment = Math.round((totalCharges - totalCredits) * 100) / 100;
+
+  return {
+    periods,
+    totalPeriodsAffected: periods.length,
+    totalCredits,
+    totalCharges,
+    netAdjustment,
+    isUpgrade: newPlan.price > oldPlan.price,
+  };
+}
+
+/**
+ * Generate invoice for service end (cancellation)
+ */
+export function generateServiceEndInvoice(
+  result: ServiceEndResult,
+  plan: Plan
+): Invoice {
+  const lines: InvoiceLine[] = result.periods.map((period) => ({
+    description: `${plan.name} - Credit for ${period.isPartialPeriod ? 'Period ' + period.periodNumber : 'Period ' + period.periodNumber} (${period.daysCredited} days)`,
+    quantity: 1,
+    unitPrice: -period.credit,
+    amount: -period.credit,
+    isCredit: true,
+  }));
+
+  return {
+    lines,
+    subtotal: 0,
+    credits: result.totalCredit,
+    total: -result.totalCredit,
+    periodStart: result.periods[0]?.periodStart || new Date(),
+    periodEnd: result.periods[result.periods.length - 1]?.periodEnd || new Date(),
+  };
+}
+
+/**
+ * Generate invoice for service start
+ */
+export function generateServiceStartInvoice(
+  result: ServiceStartResult,
+  plan: Plan
+): Invoice {
+  const lines: InvoiceLine[] = result.periods.map((period) => ({
+    description: `${plan.name} - Charge for Period ${period.periodNumber} (${period.daysCharged} days)`,
+    quantity: 1,
+    unitPrice: period.charge,
+    amount: period.charge,
+    isCredit: false,
+  }));
+
+  return {
+    lines,
+    subtotal: result.totalCharge,
+    credits: 0,
+    total: result.totalCharge,
+    periodStart: result.periods[0]?.periodStart || new Date(),
+    periodEnd: result.periods[result.periods.length - 1]?.periodEnd || new Date(),
+  };
+}
+
+/**
+ * Generate invoice for plan change
+ */
+export function generatePlanChangeInvoice(
+  result: PlanChangeResult,
+  oldPlan: Plan,
+  newPlan: Plan
+): Invoice {
+  const lines: InvoiceLine[] = [];
+
+  // Add line items for each period
+  result.periods.forEach((period) => {
+    // Credit line for old plan
+    lines.push({
+      description: `${oldPlan.name} - Credit for Period ${period.periodNumber} (${period.daysAffected} days)`,
+      quantity: 1,
+      unitPrice: -period.creditFromOldPlan,
+      amount: -period.creditFromOldPlan,
+      isCredit: true,
+    });
+
+    // Charge line for new plan
+    lines.push({
+      description: `${newPlan.name} - Charge for Period ${period.periodNumber} (${period.daysAffected} days)`,
+      quantity: 1,
+      unitPrice: period.chargeForNewPlan,
+      amount: period.chargeForNewPlan,
+      isCredit: false,
+    });
+  });
+
+  return {
+    lines,
+    subtotal: result.totalCharges,
+    credits: result.totalCredits,
+    total: result.netAdjustment,
+    periodStart: result.periods[0]?.periodStart || new Date(),
+    periodEnd: result.periods[result.periods.length - 1]?.periodEnd || new Date(),
   };
 }

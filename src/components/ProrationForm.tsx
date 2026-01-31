@@ -12,7 +12,6 @@ interface ProrationFormProps {
   newPlanPrice: number;
   validationErrors: string[];
   billingAnchorDay: number;
-  isMultiPeriod: boolean;
   scenario: ProrationScenario;
   showPreviousPlan: boolean;
   showNextPlan: boolean;
@@ -67,7 +66,6 @@ export function ProrationForm({
   newPlanPrice,
   validationErrors,
   billingAnchorDay,
-  isMultiPeriod,
   scenario,
   showPreviousPlan,
   showNextPlan,
@@ -150,9 +148,6 @@ export function ProrationForm({
               value={changeDate}
               onChange={onChangeDateChange}
             />
-            {isMultiPeriod && scenario === 'planChange' && (
-              <p className="mt-1 text-xs text-indigo-600">Retroactive</p>
-            )}
           </div>
         </div>
       </div>

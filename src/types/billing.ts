@@ -8,80 +8,40 @@ export interface Plan {
   cycle: BillingCycle;
 }
 
-export interface ProrationInput {
+// Unified period for service end (cancellation credit)
+export interface ServiceEndPeriod {
+  periodNumber: number;
   periodStart: Date;
   periodEnd: Date;
-  serviceStart: Date;
-  serviceEnd?: Date;
-  plan: Plan;
-  changeDate?: Date;
-  newPlan?: Plan;
-}
-
-export interface ProrationResult {
-  totalSecondsInPeriod: number;
-  proratedSeconds: number;
-  secondlyRate: number;
-  proratedAmount: number;
-  fullAmount: number;
+  daysInPeriod: number;
+  daysUsed: number;
+  daysCredited: number;
   credit: number;
-  percentageUsed: number;
-  // Display values (derived from seconds)
-  totalDaysInPeriod: number;
-  proratedDays: number;
-  dailyRate: number;
-}
-
-export interface PlanChangeResult {
-  oldPlanCredit: number;
-  oldPlanSecondsUsed: number;
-  newPlanCharge: number;
-  newPlanSecondsRemaining: number;
-  netAmount: number;
-  isUpgrade: boolean;
-  // Display values (derived from seconds)
-  oldPlanDaysUsed: number;
-  newPlanDaysRemaining: number;
+  isPartialPeriod: boolean;
+  partialPosition: 'start' | 'end' | 'none';
 }
 
 export interface ServiceEndResult {
-  credit: number;
-  daysUsed: number;
-  daysRemaining: number;
-  totalDaysInPeriod: number;
-  percentageUsed: number;
-}
-
-export interface ServiceStartResult {
-  charge: number;
-  daysActive: number;
-  daysInactive: number;
-  totalDaysInPeriod: number;
-  percentageActive: number;
-}
-
-export interface MultiPeriodServiceEndResult {
-  periods: {
-    periodNumber: number;
-    periodStart: Date;
-    periodEnd: Date;
-    daysInPeriod: number;
-    daysCredited: number;
-    credit: number;
-  }[];
+  periods: ServiceEndPeriod[];
   totalPeriodsAffected: number;
   totalCredit: number;
 }
 
-export interface MultiPeriodServiceStartResult {
-  periods: {
-    periodNumber: number;
-    periodStart: Date;
-    periodEnd: Date;
-    daysInPeriod: number;
-    daysCharged: number;
-    charge: number;
-  }[];
+// Unified period for service start (prorated charge)
+export interface ServiceStartPeriod {
+  periodNumber: number;
+  periodStart: Date;
+  periodEnd: Date;
+  daysInPeriod: number;
+  daysInactive: number;
+  daysCharged: number;
+  charge: number;
+  isPartialPeriod: boolean;
+  partialPosition: 'start' | 'end' | 'none';
+}
+
+export interface ServiceStartResult {
+  periods: ServiceStartPeriod[];
   totalPeriodsAffected: number;
   totalCharge: number;
 }
@@ -119,34 +79,23 @@ export const CYCLE_LABELS: Record<BillingCycle, string> = {
 
 export const SECONDS_PER_DAY = 86400;
 
-export interface PeriodAdjustment {
+// Unified period for plan change (credit + charge)
+export interface PlanChangePeriod {
   periodNumber: number;
   periodStart: Date;
   periodEnd: Date;
   isPartialPeriod: boolean;
   partialPosition: 'start' | 'end' | 'none';
-  secondsInPeriod: number;
-  secondsAffected: number;
-  oldPlanCharge: number;
+  daysInPeriod: number;
+  daysOnOldPlan: number;
+  daysAffected: number;
   creditFromOldPlan: number;
   chargeForNewPlan: number;
   netAdjustment: number;
-  // Display values (derived from seconds)
-  daysInPeriod: number;
-  daysAffected: number;
 }
 
-export interface MultiPeriodInput {
-  effectiveChangeDate: Date;
-  currentDate: Date;
-  billingCycle: BillingCycle;
-  billingAnchorDay: number;
-  oldPlan: Plan;
-  newPlan: Plan;
-}
-
-export interface MultiPeriodResult {
-  periods: PeriodAdjustment[];
+export interface PlanChangeResult {
+  periods: PlanChangePeriod[];
   totalPeriodsAffected: number;
   totalCredits: number;
   totalCharges: number;

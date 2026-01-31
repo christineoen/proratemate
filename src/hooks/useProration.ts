@@ -1,28 +1,22 @@
 import { useState, useMemo, useCallback } from 'react';
-import { startOfMonth, endOfMonth, getDate, isBefore, differenceInSeconds, startOfDay } from 'date-fns';
+import { startOfMonth, endOfMonth, getDate, startOfDay } from 'date-fns';
 import type {
   BillingCycle,
   Plan,
-  PlanChangeResult,
   Invoice,
-  MultiPeriodResult,
   ProrationScenario,
   ServiceEndResult,
   ServiceStartResult,
-  MultiPeriodServiceEndResult,
-  MultiPeriodServiceStartResult,
+  PlanChangeResult,
 } from '../types/billing';
 import {
   calculatePeriodEnd,
+  calculateServiceEnd,
+  calculateServiceStart,
   calculatePlanChange,
+  generateServiceEndInvoice,
+  generateServiceStartInvoice,
   generatePlanChangeInvoice,
-  calculateMultiPeriodAdjustment,
-  generateMultiPeriodInvoice,
-  calculateSecondsInPeriod,
-  calculateSecondlyRate,
-  secondsToDays,
-  calculateMultiPeriodServiceEnd,
-  calculateMultiPeriodServiceStart,
 } from '../utils/proration';
 
 interface UseProrationState {
@@ -67,11 +61,6 @@ export function useProration() {
   const scenario = useMemo<ProrationScenario>(() => {
     return detectScenario(showPreviousPlan, showNextPlan);
   }, [showPreviousPlan, showNextPlan]);
-
-  // Determine if this is a multi-period scenario (plan change date is before current period)
-  const isMultiPeriod = useMemo(() => {
-    return isBefore(state.changeDate, state.periodStart);
-  }, [state.changeDate, state.periodStart]);
 
   // Update period end when billing cycle or period start changes
   const updateBillingCycle = useCallback((cycle: BillingCycle) => {
@@ -150,248 +139,81 @@ export function useProration() {
       return errors;
     }
 
-    // Multi-period validation (date before current period)
-    if (isBefore(state.changeDate, state.periodStart)) {
-      // Basic validation for multi-period
-      if (state.billingAnchorDay < 1 || state.billingAnchorDay > 31) {
-        errors.push('Billing anchor day must be between 1 and 31');
-      }
-      return errors;
-    }
-
-    // Single period validation
-    if (isBefore(state.periodEnd, state.changeDate)) {
-      errors.push('Date must be within the billing period');
+    // Basic validation for billing anchor day
+    if (state.billingAnchorDay < 1 || state.billingAnchorDay > 31) {
+      errors.push('Billing anchor day must be between 1 and 31');
     }
 
     return errors;
   }, [state, scenario]);
 
-  // Calculate service end result (current plan only - cancellation credit, single period)
+  // Calculate service end result (cancellation credit)
   const serviceEndResult: ServiceEndResult | null = useMemo(() => {
-    if (validationErrors.length > 0 || scenario !== 'serviceEnd' || isMultiPeriod) return null;
+    if (validationErrors.length > 0 || scenario !== 'serviceEnd') return null;
 
-    const totalSecondsInPeriod = calculateSecondsInPeriod(state.periodStart, state.periodEnd);
-    const secondsUsed = differenceInSeconds(state.changeDate, state.periodStart);
-    const secondsRemaining = totalSecondsInPeriod - secondsUsed;
-    const secondlyRate = calculateSecondlyRate(state.plan.price, totalSecondsInPeriod);
-    const credit = Math.round(secondlyRate * secondsRemaining * 100) / 100;
-    const percentageUsed = (secondsUsed / totalSecondsInPeriod) * 100;
-
-    return {
-      credit,
-      daysUsed: Math.round(secondsToDays(secondsUsed) * 100) / 100,
-      daysRemaining: Math.round(secondsToDays(secondsRemaining) * 100) / 100,
-      totalDaysInPeriod: Math.round(secondsToDays(totalSecondsInPeriod) * 100) / 100,
-      percentageUsed: Math.round(percentageUsed * 100) / 100,
-    };
-  }, [state, validationErrors, scenario, isMultiPeriod]);
-
-  // Calculate multi-period service end result
-  const multiPeriodServiceEndResult: MultiPeriodServiceEndResult | null = useMemo(() => {
-    if (validationErrors.length > 0 || scenario !== 'serviceEnd' || !isMultiPeriod) return null;
-
-    return calculateMultiPeriodServiceEnd(
+    return calculateServiceEnd(
       state.changeDate,
       state.periodEnd,
       state.billingCycle,
       state.billingAnchorDay,
       state.plan
     );
-  }, [state, validationErrors, scenario, isMultiPeriod]);
+  }, [state, validationErrors, scenario]);
 
-  // Calculate service start result (new plan only - prorated charge, single period)
+  // Calculate service start result (prorated charge)
   const serviceStartResult: ServiceStartResult | null = useMemo(() => {
-    if (validationErrors.length > 0 || scenario !== 'serviceStart' || isMultiPeriod) return null;
+    if (validationErrors.length > 0 || scenario !== 'serviceStart') return null;
 
-    const totalSecondsInPeriod = calculateSecondsInPeriod(state.periodStart, state.periodEnd);
-    const secondsInactive = differenceInSeconds(state.changeDate, state.periodStart);
-    const secondsActive = totalSecondsInPeriod - secondsInactive;
-    const secondlyRate = calculateSecondlyRate(state.newPlan.price, totalSecondsInPeriod);
-    const charge = Math.round(secondlyRate * secondsActive * 100) / 100;
-    const percentageActive = (secondsActive / totalSecondsInPeriod) * 100;
-
-    return {
-      charge,
-      daysActive: Math.round(secondsToDays(secondsActive) * 100) / 100,
-      daysInactive: Math.round(secondsToDays(secondsInactive) * 100) / 100,
-      totalDaysInPeriod: Math.round(secondsToDays(totalSecondsInPeriod) * 100) / 100,
-      percentageActive: Math.round(percentageActive * 100) / 100,
-    };
-  }, [state, validationErrors, scenario, isMultiPeriod]);
-
-  // Calculate multi-period service start result
-  const multiPeriodServiceStartResult: MultiPeriodServiceStartResult | null = useMemo(() => {
-    if (validationErrors.length > 0 || scenario !== 'serviceStart' || !isMultiPeriod) return null;
-
-    return calculateMultiPeriodServiceStart(
+    return calculateServiceStart(
       state.changeDate,
       state.periodEnd,
       state.billingCycle,
       state.billingAnchorDay,
       state.newPlan
     );
-  }, [state, validationErrors, scenario, isMultiPeriod]);
+  }, [state, validationErrors, scenario]);
 
-  // Calculate plan change result (single period only)
+  // Calculate plan change result
   const planChangeResult: PlanChangeResult | null = useMemo(() => {
     if (validationErrors.length > 0 || scenario !== 'planChange') return null;
 
-    if (!isMultiPeriod) {
-      return calculatePlanChange(
-        state.periodStart,
-        state.periodEnd,
-        state.changeDate,
-        state.plan,
-        state.newPlan
-      );
-    }
-    return null;
-  }, [state, validationErrors, isMultiPeriod, scenario]);
-
-  // Calculate multi-period result (when plan change date is before current period)
-  const multiPeriodResult: MultiPeriodResult | null = useMemo(() => {
-    if (validationErrors.length > 0 || scenario !== 'planChange') return null;
-
-    if (isMultiPeriod) {
-      return calculateMultiPeriodAdjustment({
-        effectiveChangeDate: state.changeDate,
-        currentDate: state.periodEnd,
-        billingCycle: state.billingCycle,
-        billingAnchorDay: state.billingAnchorDay,
-        oldPlan: state.plan,
-        newPlan: state.newPlan,
-      });
-    }
-    return null;
-  }, [state, validationErrors, isMultiPeriod, scenario]);
+    return calculatePlanChange(
+      state.changeDate,
+      state.periodEnd,
+      state.billingCycle,
+      state.billingAnchorDay,
+      state.plan,
+      state.newPlan
+    );
+  }, [state, validationErrors, scenario]);
 
   // Generate invoice
   const invoice: Invoice | null = useMemo(() => {
     if (validationErrors.length > 0) return null;
 
-    // Service End: Multi-period credit
-    if (scenario === 'serviceEnd' && isMultiPeriod && multiPeriodServiceEndResult) {
-      const lines = multiPeriodServiceEndResult.periods.map((period) => ({
-        description: `${state.plan.name} - Credit for Period ${period.periodNumber} (${period.daysCredited} days)`,
-        quantity: 1,
-        unitPrice: -period.credit,
-        amount: -period.credit,
-        isCredit: true,
-      }));
-
-      return {
-        lines,
-        subtotal: 0,
-        credits: multiPeriodServiceEndResult.totalCredit,
-        total: -multiPeriodServiceEndResult.totalCredit,
-        periodStart: multiPeriodServiceEndResult.periods[0]?.periodStart || state.changeDate,
-        periodEnd: multiPeriodServiceEndResult.periods[multiPeriodServiceEndResult.periods.length - 1]?.periodEnd || state.periodEnd,
-      };
-    }
-
-    // Service End: Single period credit
     if (scenario === 'serviceEnd' && serviceEndResult) {
-      return {
-        lines: [
-          {
-            description: `${state.plan.name} - Credit for unused portion (${serviceEndResult.daysRemaining} days)`,
-            quantity: 1,
-            unitPrice: -serviceEndResult.credit,
-            amount: -serviceEndResult.credit,
-            isCredit: true,
-          },
-        ],
-        subtotal: 0,
-        credits: serviceEndResult.credit,
-        total: -serviceEndResult.credit,
-        periodStart: state.periodStart,
-        periodEnd: state.periodEnd,
-      };
+      return generateServiceEndInvoice(serviceEndResult, state.plan);
     }
 
-    // Service Start: Multi-period charge
-    if (scenario === 'serviceStart' && isMultiPeriod && multiPeriodServiceStartResult) {
-      const lines = multiPeriodServiceStartResult.periods.map((period) => ({
-        description: `${state.newPlan.name} - Charge for Period ${period.periodNumber} (${period.daysCharged} days)`,
-        quantity: 1,
-        unitPrice: period.charge,
-        amount: period.charge,
-        isCredit: false,
-      }));
-
-      return {
-        lines,
-        subtotal: multiPeriodServiceStartResult.totalCharge,
-        credits: 0,
-        total: multiPeriodServiceStartResult.totalCharge,
-        periodStart: multiPeriodServiceStartResult.periods[0]?.periodStart || state.changeDate,
-        periodEnd: multiPeriodServiceStartResult.periods[multiPeriodServiceStartResult.periods.length - 1]?.periodEnd || state.periodEnd,
-      };
-    }
-
-    // Service Start: Single period charge
     if (scenario === 'serviceStart' && serviceStartResult) {
-      return {
-        lines: [
-          {
-            description: `${state.newPlan.name} - Prorated charge (${serviceStartResult.daysActive} days)`,
-            quantity: 1,
-            unitPrice: serviceStartResult.charge,
-            amount: serviceStartResult.charge,
-            isCredit: false,
-          },
-        ],
-        subtotal: serviceStartResult.charge,
-        credits: 0,
-        total: serviceStartResult.charge,
-        periodStart: state.periodStart,
-        periodEnd: state.periodEnd,
-      };
+      return generateServiceStartInvoice(serviceStartResult, state.newPlan);
     }
 
-    // Plan Change: Multi-period
-    if (isMultiPeriod && multiPeriodResult) {
-      return generateMultiPeriodInvoice(
-        {
-          effectiveChangeDate: state.changeDate,
-          currentDate: state.periodEnd,
-          billingCycle: state.billingCycle,
-          billingAnchorDay: state.billingAnchorDay,
-          oldPlan: state.plan,
-          newPlan: state.newPlan,
-        },
-        multiPeriodResult
-      );
-    }
-
-    // Plan Change: Single period
-    if (planChangeResult) {
-      return generatePlanChangeInvoice(
-        state.periodStart,
-        state.periodEnd,
-        state.changeDate,
-        state.plan,
-        state.newPlan,
-        planChangeResult
-      );
+    if (scenario === 'planChange' && planChangeResult) {
+      return generatePlanChangeInvoice(planChangeResult, state.plan, state.newPlan);
     }
 
     return null;
-  }, [state, planChangeResult, multiPeriodResult, serviceEndResult, serviceStartResult, multiPeriodServiceEndResult, multiPeriodServiceStartResult, validationErrors, isMultiPeriod, scenario]);
+  }, [state, serviceEndResult, serviceStartResult, planChangeResult, validationErrors, scenario]);
 
   return {
     ...state,
     scenario,
-    isMultiPeriod,
     showPreviousPlan,
     showNextPlan,
     serviceEndResult,
     serviceStartResult,
-    multiPeriodServiceEndResult,
-    multiPeriodServiceStartResult,
     planChangeResult,
-    multiPeriodResult,
     invoice,
     validationErrors,
     updateBillingCycle,

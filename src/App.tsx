@@ -1,26 +1,21 @@
 import { useProration } from './hooks/useProration';
 import { ProrationForm } from './components/ProrationForm';
-import { TimelineBar } from './components/TimelineBar';
+import { Timeline } from './components/Timeline';
 import { InvoicePreview } from './components/InvoicePreview';
 
 function App() {
   const {
     periodStart,
-    periodEnd,
     billingCycle,
     plan,
     changeDate,
     newPlan,
     scenario,
-    isMultiPeriod,
     showPreviousPlan,
     showNextPlan,
     serviceEndResult,
     serviceStartResult,
-    multiPeriodServiceEndResult,
-    multiPeriodServiceStartResult,
     planChangeResult,
-    multiPeriodResult,
     invoice,
     validationErrors,
     billingAnchorDay,
@@ -64,7 +59,6 @@ function App() {
             newPlanPrice={newPlan.price}
             validationErrors={validationErrors}
             billingAnchorDay={billingAnchorDay}
-            isMultiPeriod={isMultiPeriod}
             scenario={scenario}
             showPreviousPlan={showPreviousPlan}
             showNextPlan={showNextPlan}
@@ -83,20 +77,13 @@ function App() {
 
         {/* Timeline */}
         <div className="mb-8">
-          <TimelineBar
-            periodStart={periodStart}
-            periodEnd={periodEnd}
-            changeDate={changeDate}
-            planChangeResult={planChangeResult}
-            multiPeriodResult={multiPeriodResult}
+          <Timeline
+            scenario={scenario}
             serviceEndResult={serviceEndResult}
             serviceStartResult={serviceStartResult}
-            multiPeriodServiceEndResult={multiPeriodServiceEndResult}
-            multiPeriodServiceStartResult={multiPeriodServiceStartResult}
-            plan={plan}
+            planChangeResult={planChangeResult}
+            oldPlan={plan}
             newPlan={newPlan}
-            isMultiPeriod={isMultiPeriod}
-            scenario={scenario}
           />
         </div>
 
@@ -106,20 +93,20 @@ function App() {
         </div>
 
         {/* Calculation Details */}
-        {(serviceEndResult || serviceStartResult || planChangeResult || multiPeriodResult || multiPeriodServiceEndResult || multiPeriodServiceStartResult) && (
+        {(serviceEndResult || serviceStartResult || planChangeResult) && (
           <div className="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Calculation Breakdown</h3>
 
-            {/* Service End: Multi-period cancellation credit */}
-            {multiPeriodServiceEndResult && scenario === 'serviceEnd' && isMultiPeriod && (
+            {/* Service End */}
+            {serviceEndResult && scenario === 'serviceEnd' && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-500 mb-1">Periods Affected</div>
                   <div className="text-xl font-semibold text-gray-900">
-                    {multiPeriodServiceEndResult.totalPeriodsAffected}
+                    {serviceEndResult.totalPeriodsAffected}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    billing periods
+                    billing period{serviceEndResult.totalPeriodsAffected !== 1 ? 's' : ''}
                   </div>
                 </div>
                 <div className="p-4 bg-amber-50 rounded-lg">
@@ -134,16 +121,16 @@ function App() {
                 <div className="p-4 bg-green-50 rounded-lg">
                   <div className="text-sm text-green-600 mb-1">Total Credit</div>
                   <div className="text-xl font-semibold text-green-700">
-                    ${multiPeriodServiceEndResult.totalCredit.toFixed(2)}
+                    ${serviceEndResult.totalCredit.toFixed(2)}
                   </div>
                   <div className="text-xs text-green-400 mt-1">
-                    retroactive refund
+                    for unused days
                   </div>
                 </div>
                 <div className="p-4 bg-green-50 rounded-lg">
                   <div className="text-sm text-green-600 mb-1">Credit Due</div>
                   <div className="text-xl font-semibold text-green-700">
-                    ${multiPeriodServiceEndResult.totalCredit.toFixed(2)}
+                    ${serviceEndResult.totalCredit.toFixed(2)}
                   </div>
                   <div className="text-xs text-green-400 mt-1">
                     total refund
@@ -152,58 +139,16 @@ function App() {
               </div>
             )}
 
-            {/* Service End: Single period cancellation credit */}
-            {serviceEndResult && scenario === 'serviceEnd' && !isMultiPeriod && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="p-4 bg-amber-50 rounded-lg">
-                  <div className="text-sm text-amber-600 mb-1">Service Usage</div>
-                  <div className="text-xl font-semibold text-amber-700">
-                    {serviceEndResult.daysUsed} days
-                  </div>
-                  <div className="text-xs text-amber-400 mt-1">
-                    of {serviceEndResult.totalDaysInPeriod} day period
-                  </div>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Unused Days</div>
-                  <div className="text-xl font-semibold text-gray-700">
-                    {serviceEndResult.daysRemaining} days
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    after cancellation
-                  </div>
-                </div>
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-blue-600 mb-1">Plan Price</div>
-                  <div className="text-xl font-semibold text-blue-700">
-                    ${plan.price.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-blue-400 mt-1">
-                    per billing period
-                  </div>
-                </div>
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <div className="text-sm text-green-600 mb-1">Credit Due</div>
-                  <div className="text-xl font-semibold text-green-700">
-                    ${serviceEndResult.credit.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-green-400 mt-1">
-                    refund for unused days
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Service Start: Multi-period prorated charge */}
-            {multiPeriodServiceStartResult && scenario === 'serviceStart' && isMultiPeriod && (
+            {/* Service Start */}
+            {serviceStartResult && scenario === 'serviceStart' && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-500 mb-1">Periods Affected</div>
                   <div className="text-xl font-semibold text-gray-900">
-                    {multiPeriodServiceStartResult.totalPeriodsAffected}
+                    {serviceStartResult.totalPeriodsAffected}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    billing periods
+                    billing period{serviceStartResult.totalPeriodsAffected !== 1 ? 's' : ''}
                   </div>
                 </div>
                 <div className="p-4 bg-blue-50 rounded-lg">
@@ -218,16 +163,16 @@ function App() {
                 <div className="p-4 bg-amber-50 rounded-lg">
                   <div className="text-sm text-amber-600 mb-1">Total Charges</div>
                   <div className="text-xl font-semibold text-amber-700">
-                    ${multiPeriodServiceStartResult.totalCharge.toFixed(2)}
+                    ${serviceStartResult.totalCharge.toFixed(2)}
                   </div>
                   <div className="text-xs text-amber-400 mt-1">
-                    retroactive charges
+                    prorated charges
                   </div>
                 </div>
                 <div className="p-4 bg-amber-50 rounded-lg">
                   <div className="text-sm text-amber-600 mb-1">Amount Due</div>
                   <div className="text-xl font-semibold text-amber-700">
-                    ${multiPeriodServiceStartResult.totalCharge.toFixed(2)}
+                    ${serviceStartResult.totalCharge.toFixed(2)}
                   </div>
                   <div className="text-xs text-amber-400 mt-1">
                     total charge
@@ -236,131 +181,45 @@ function App() {
               </div>
             )}
 
-            {/* Service Start: Single period prorated charge */}
-            {serviceStartResult && scenario === 'serviceStart' && !isMultiPeriod && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Inactive Days</div>
-                  <div className="text-xl font-semibold text-gray-700">
-                    {serviceStartResult.daysInactive} days
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    before service start
-                  </div>
-                </div>
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <div className="text-sm text-green-600 mb-1">Active Days</div>
-                  <div className="text-xl font-semibold text-green-700">
-                    {serviceStartResult.daysActive} days
-                  </div>
-                  <div className="text-xs text-green-400 mt-1">
-                    of {serviceStartResult.totalDaysInPeriod} day period
-                  </div>
-                </div>
-                <div className="p-4 bg-amber-50 rounded-lg">
-                  <div className="text-sm text-amber-600 mb-1">Full Plan Price</div>
-                  <div className="text-xl font-semibold text-amber-700">
-                    ${newPlan.price.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-amber-400 mt-1">
-                    per billing period
-                  </div>
-                </div>
-                <div className="p-4 bg-amber-50 rounded-lg">
-                  <div className="text-sm text-amber-600 mb-1">Prorated Charge</div>
-                  <div className="text-xl font-semibold text-amber-700">
-                    ${serviceStartResult.charge.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-amber-400 mt-1">
-                    {serviceStartResult.percentageActive.toFixed(0)}% of full price
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Plan Change: Single period */}
-            {planChangeResult && !isMultiPeriod && scenario === 'planChange' && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="p-4 bg-amber-50 rounded-lg">
-                  <div className="text-sm text-amber-600 mb-1">Old Plan Usage</div>
-                  <div className="text-xl font-semibold text-amber-700">
-                    {planChangeResult.oldPlanDaysUsed} days
-                  </div>
-                  <div className="text-xs text-amber-400 mt-1">
-                    at ${plan.price}/period
-                  </div>
-                </div>
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <div className="text-sm text-green-600 mb-1">Credit Applied</div>
-                  <div className="text-xl font-semibold text-green-700">
-                    ${planChangeResult.oldPlanCredit.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-green-400 mt-1">
-                    unused portion refunded
-                  </div>
-                </div>
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-blue-600 mb-1">New Plan Charge</div>
-                  <div className="text-xl font-semibold text-blue-700">
-                    ${planChangeResult.newPlanCharge.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-blue-400 mt-1">
-                    {planChangeResult.newPlanDaysRemaining} days remaining
-                  </div>
-                </div>
-                <div className={`p-4 rounded-lg ${planChangeResult.netAmount >= 0 ? 'bg-gray-50' : 'bg-green-50'}`}>
-                  <div className={`text-sm mb-1 ${planChangeResult.netAmount >= 0 ? 'text-gray-600' : 'text-green-600'}`}>
-                    {planChangeResult.netAmount >= 0 ? 'Net Amount Due' : 'Net Credit'}
-                  </div>
-                  <div className={`text-xl font-semibold ${planChangeResult.netAmount >= 0 ? 'text-gray-700' : 'text-green-700'}`}>
-                    ${Math.abs(planChangeResult.netAmount).toFixed(2)}
-                  </div>
-                  <div className={`text-xs mt-1 ${planChangeResult.netAmount >= 0 ? 'text-gray-400' : 'text-green-400'}`}>
-                    {planChangeResult.isUpgrade ? 'upgrade charge' : 'downgrade credit'}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Plan Change: Multi-period */}
-            {multiPeriodResult && isMultiPeriod && scenario === 'planChange' && (
+            {/* Plan Change */}
+            {planChangeResult && scenario === 'planChange' && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-500 mb-1">Periods Affected</div>
                   <div className="text-xl font-semibold text-gray-900">
-                    {multiPeriodResult.totalPeriodsAffected}
+                    {planChangeResult.totalPeriodsAffected}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    billing periods
+                    billing period{planChangeResult.totalPeriodsAffected !== 1 ? 's' : ''}
                   </div>
                 </div>
-                <div className="p-4 bg-amber-50 rounded-lg">
-                  <div className="text-sm text-amber-600 mb-1">Total Credits</div>
-                  <div className="text-xl font-semibold text-amber-700">
-                    ${multiPeriodResult.totalCredits.toFixed(2)}
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <div className="text-sm text-green-600 mb-1">Total Credits</div>
+                  <div className="text-xl font-semibold text-green-700">
+                    ${planChangeResult.totalCredits.toFixed(2)}
                   </div>
-                  <div className="text-xs text-amber-400 mt-1">
+                  <div className="text-xs text-green-400 mt-1">
                     from {plan.name}
                   </div>
                 </div>
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-blue-600 mb-1">Total Charges</div>
-                  <div className="text-xl font-semibold text-blue-700">
-                    ${multiPeriodResult.totalCharges.toFixed(2)}
+                <div className="p-4 bg-amber-50 rounded-lg">
+                  <div className="text-sm text-amber-600 mb-1">Total Charges</div>
+                  <div className="text-xl font-semibold text-amber-700">
+                    ${planChangeResult.totalCharges.toFixed(2)}
                   </div>
-                  <div className="text-xs text-blue-400 mt-1">
+                  <div className="text-xs text-amber-400 mt-1">
                     for {newPlan.name}
                   </div>
                 </div>
-                <div className={`p-4 rounded-lg ${multiPeriodResult.netAdjustment >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-                  <div className={`text-sm mb-1 ${multiPeriodResult.netAdjustment >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {multiPeriodResult.netAdjustment >= 0 ? 'Net Amount Due' : 'Net Refund Due'}
+                <div className={`p-4 rounded-lg ${planChangeResult.netAdjustment >= 0 ? 'bg-amber-50' : 'bg-green-50'}`}>
+                  <div className={`text-sm mb-1 ${planChangeResult.netAdjustment >= 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                    {planChangeResult.netAdjustment >= 0 ? 'Net Amount Due' : 'Net Refund Due'}
                   </div>
-                  <div className={`text-xl font-semibold ${multiPeriodResult.netAdjustment >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                    ${Math.abs(multiPeriodResult.netAdjustment).toFixed(2)}
+                  <div className={`text-xl font-semibold ${planChangeResult.netAdjustment >= 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                    ${Math.abs(planChangeResult.netAdjustment).toFixed(2)}
                   </div>
-                  <div className={`text-xs mt-1 ${multiPeriodResult.netAdjustment >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {multiPeriodResult.isUpgrade ? 'retroactive upgrade' : 'retroactive downgrade'}
+                  <div className={`text-xs mt-1 ${planChangeResult.netAdjustment >= 0 ? 'text-amber-400' : 'text-green-400'}`}>
+                    {planChangeResult.isUpgrade ? 'upgrade charge' : 'downgrade credit'}
                   </div>
                 </div>
               </div>
