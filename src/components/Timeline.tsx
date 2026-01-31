@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { formatCurrency } from '../utils/proration';
+import { DateRangePicker } from './DateRangePicker';
 import type {
   Plan,
   ProrationScenario,
@@ -15,6 +16,24 @@ interface TimelineProps {
   planChangeResult: PlanChangeResult | null;
   oldPlan: Plan;
   newPlan: Plan;
+  changeDate: Date;
+  onChangeDateChange: (date: Date) => void;
+  showPreviousPlan: boolean;
+  showNextPlan: boolean;
+}
+
+function getDateLabel(scenario: ProrationScenario, showPreviousPlan: boolean, showNextPlan: boolean): string {
+  if (showPreviousPlan && showNextPlan) return 'Effective Date';
+  switch (scenario) {
+    case 'serviceEnd':
+      return 'Cancellation Date';
+    case 'serviceStart':
+      return 'Start Date';
+    case 'planChange':
+      return 'Change Date';
+    default:
+      return 'Effective Date';
+  }
 }
 
 // Check if the effective date label would overlap with start/end labels
@@ -31,10 +50,16 @@ export function Timeline({
   planChangeResult,
   oldPlan,
   newPlan,
+  changeDate,
+  onChangeDateChange,
+  showPreviousPlan,
+  showNextPlan,
 }: TimelineProps) {
   if (scenario === 'none') {
     return null;
   }
+
+  const dateLabel = getDateLabel(scenario, showPreviousPlan, showNextPlan);
 
   // Service End (Cancellation)
   if (scenario === 'serviceEnd' && serviceEndResult) {
@@ -42,12 +67,21 @@ export function Timeline({
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-gray-900">Service Cancellation</h3>
+            <div className="flex items-center gap-4">
+              <div className="w-40">
+                <DateRangePicker
+                  label={dateLabel}
+                  value={changeDate}
+                  onChange={onChangeDateChange}
+                />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Service Cancellation</h3>
+            </div>
             <div className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700">
               Cancellation
             </div>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 ml-44">
             {serviceEndResult.totalPeriodsAffected} billing period{serviceEndResult.totalPeriodsAffected !== 1 ? 's' : ''} affected
           </p>
         </div>
@@ -198,12 +232,21 @@ export function Timeline({
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-gray-900">Service Start</h3>
+            <div className="flex items-center gap-4">
+              <div className="w-40">
+                <DateRangePicker
+                  label={dateLabel}
+                  value={changeDate}
+                  onChange={onChangeDateChange}
+                />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Service Start</h3>
+            </div>
             <div className="px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700">
               New Service
             </div>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 ml-44">
             {serviceStartResult.totalPeriodsAffected} billing period{serviceStartResult.totalPeriodsAffected !== 1 ? 's' : ''} affected
           </p>
         </div>
@@ -354,7 +397,16 @@ export function Timeline({
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-gray-900">Plan Change</h3>
+            <div className="flex items-center gap-4">
+              <div className="w-40">
+                <DateRangePicker
+                  label={dateLabel}
+                  value={changeDate}
+                  onChange={onChangeDateChange}
+                />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Plan Change</h3>
+            </div>
             <div className={`px-3 py-1 rounded-full text-sm font-medium ${
               planChangeResult.isUpgrade
                 ? 'bg-green-100 text-green-700'
@@ -363,7 +415,7 @@ export function Timeline({
               {planChangeResult.isUpgrade ? 'Plan Upgrade' : 'Plan Downgrade'}
             </div>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 ml-44">
             {planChangeResult.totalPeriodsAffected} billing period{planChangeResult.totalPeriodsAffected !== 1 ? 's' : ''} affected
           </p>
         </div>

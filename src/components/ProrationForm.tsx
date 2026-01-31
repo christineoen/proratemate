@@ -1,4 +1,4 @@
-import type { BillingCycle, ProrationScenario } from '../types/billing';
+import type { BillingCycle } from '../types/billing';
 import { CYCLE_LABELS } from '../types/billing';
 import { DateRangePicker } from './DateRangePicker';
 
@@ -7,37 +7,21 @@ interface ProrationFormProps {
   billingCycle: BillingCycle;
   planName: string;
   planPrice: number;
-  changeDate: Date;
   newPlanName: string;
   newPlanPrice: number;
   validationErrors: string[];
   billingAnchorDay: number;
-  scenario: ProrationScenario;
   showPreviousPlan: boolean;
   showNextPlan: boolean;
   onPeriodStartChange: (date: Date) => void;
   onBillingCycleChange: (cycle: BillingCycle) => void;
   onPlanNameChange: (name: string) => void;
   onPlanPriceChange: (price: number) => void;
-  onChangeDateChange: (date: Date) => void;
   onNewPlanNameChange: (name: string) => void;
   onNewPlanPriceChange: (price: number) => void;
   onBillingAnchorDayChange: (day: number) => void;
   onShowPreviousPlanChange: (show: boolean) => void;
   onShowNextPlanChange: (show: boolean) => void;
-}
-
-function getDateLabel(scenario: ProrationScenario): string {
-  switch (scenario) {
-    case 'serviceEnd':
-      return 'Cancellation Date';
-    case 'serviceStart':
-      return 'Service Start Date';
-    case 'planChange':
-      return 'Plan Change Date';
-    default:
-      return 'Effective Date';
-  }
 }
 
 function PlusIcon({ className }: { className?: string }) {
@@ -61,19 +45,16 @@ export function ProrationForm({
   billingCycle,
   planName,
   planPrice,
-  changeDate,
   newPlanName,
   newPlanPrice,
   validationErrors,
   billingAnchorDay,
-  scenario,
   showPreviousPlan,
   showNextPlan,
   onPeriodStartChange,
   onBillingCycleChange,
   onPlanNameChange,
   onPlanPriceChange,
-  onChangeDateChange,
   onNewPlanNameChange,
   onNewPlanPriceChange,
   onBillingAnchorDayChange,
@@ -96,17 +77,12 @@ export function ProrationForm({
     onShowNextPlanChange(true);
   };
 
-  // Determine date label based on which plan sections are visible
-  const dateLabel = showPreviousPlan && showNextPlan
-    ? 'Effective Date'
-    : getDateLabel(scenario);
-
   return (
     <div className="space-y-4">
       {/* Billing Configuration */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Billing Period</h3>
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-2">Billing Cycle</label>
             <select
@@ -141,13 +117,6 @@ export function ProrationForm({
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <DateRangePicker
-              label={dateLabel}
-              value={changeDate}
-              onChange={onChangeDateChange}
-            />
           </div>
         </div>
       </div>

@@ -54,19 +54,16 @@ function App() {
             billingCycle={billingCycle}
             planName={plan.name}
             planPrice={plan.price}
-            changeDate={changeDate}
             newPlanName={newPlan.name}
             newPlanPrice={newPlan.price}
             validationErrors={validationErrors}
             billingAnchorDay={billingAnchorDay}
-            scenario={scenario}
             showPreviousPlan={showPreviousPlan}
             showNextPlan={showNextPlan}
             onPeriodStartChange={updatePeriodStart}
             onBillingCycleChange={updateBillingCycle}
             onPlanNameChange={updatePlanName}
             onPlanPriceChange={updatePlanPrice}
-            onChangeDateChange={updateChangeDate}
             onNewPlanNameChange={updateNewPlanName}
             onNewPlanPriceChange={updateNewPlanPrice}
             onBillingAnchorDayChange={updateBillingAnchorDay}
@@ -84,6 +81,10 @@ function App() {
             planChangeResult={planChangeResult}
             oldPlan={plan}
             newPlan={newPlan}
+            changeDate={changeDate}
+            onChangeDateChange={updateChangeDate}
+            showPreviousPlan={showPreviousPlan}
+            showNextPlan={showNextPlan}
           />
         </div>
 
