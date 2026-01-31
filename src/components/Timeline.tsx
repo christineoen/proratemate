@@ -17,6 +17,13 @@ interface TimelineProps {
   newPlan: Plan;
 }
 
+// Check if the effective date label would overlap with start/end labels
+// Returns true if label should be on a second row
+function shouldLabelBeOnSecondRow(percentage: number): boolean {
+  const EDGE_THRESHOLD = 18; // percentage from edge where overlap occurs
+  return percentage < EDGE_THRESHOLD || percentage > (100 - EDGE_THRESHOLD);
+}
+
 export function Timeline({
   scenario,
   serviceEndResult,
@@ -127,26 +134,45 @@ export function Timeline({
                   </div>
 
                   {/* Date timeline bar */}
-                  <div className="relative h-1 rounded bg-gray-200 mt-2">
-                    {isFirstPeriod && period.partialPosition === 'start' && (
-                      <div
-                        className="absolute top-0 w-0.5 h-2 bg-red-500 -translate-y-0.5"
-                        style={{ left: `${usedPercentage}%` }}
-                      ></div>
-                    )}
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500 relative">
-                    <span>{format(period.periodStart, 'MMM d')}</span>
-                    {isFirstPeriod && period.partialPosition === 'start' && (
-                      <span
-                        className="absolute text-red-600 font-medium"
-                        style={{ left: `${usedPercentage}%`, transform: 'translateX(-50%)' }}
-                      >
-                        Canceled
-                      </span>
-                    )}
-                    <span>{format(period.periodEnd, 'MMM d, yyyy')}</span>
-                  </div>
+                  {(() => {
+                    const showEffectiveLabel = isFirstPeriod && period.partialPosition === 'start';
+                    const labelOnSecondRow = showEffectiveLabel && shouldLabelBeOnSecondRow(usedPercentage);
+
+                    return (
+                      <>
+                        <div className="relative h-1 rounded bg-gray-200 mt-2">
+                          {showEffectiveLabel && (
+                            <div
+                              className="absolute top-0 w-0.5 h-2 bg-red-500 -translate-y-0.5"
+                              style={{ left: `${usedPercentage}%` }}
+                            ></div>
+                          )}
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500 relative">
+                          <span>{format(period.periodStart, 'MMM d')}</span>
+                          {showEffectiveLabel && !labelOnSecondRow && (
+                            <span
+                              className="absolute text-red-600 font-medium"
+                              style={{ left: `${usedPercentage}%`, transform: 'translateX(-50%)' }}
+                            >
+                              Canceled
+                            </span>
+                          )}
+                          <span>{format(period.periodEnd, 'MMM d, yyyy')}</span>
+                        </div>
+                        {labelOnSecondRow && (
+                          <div className="relative text-xs h-4">
+                            <span
+                              className="absolute text-red-600 font-medium whitespace-nowrap"
+                              style={{ left: `${usedPercentage}%`, transform: 'translateX(-50%)' }}
+                            >
+                              Canceled
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -264,26 +290,45 @@ export function Timeline({
                   </div>
 
                   {/* Date timeline bar */}
-                  <div className="relative h-1 rounded bg-gray-200 mt-2">
-                    {isFirstPeriod && period.partialPosition === 'start' && (
-                      <div
-                        className="absolute top-0 w-0.5 h-2 bg-amber-500 -translate-y-0.5"
-                        style={{ left: `${inactivePercentage}%` }}
-                      ></div>
-                    )}
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500 relative">
-                    <span>{format(period.periodStart, 'MMM d')}</span>
-                    {isFirstPeriod && period.partialPosition === 'start' && (
-                      <span
-                        className="absolute text-amber-600 font-medium"
-                        style={{ left: `${inactivePercentage}%`, transform: 'translateX(-50%)' }}
-                      >
-                        Started
-                      </span>
-                    )}
-                    <span>{format(period.periodEnd, 'MMM d, yyyy')}</span>
-                  </div>
+                  {(() => {
+                    const showEffectiveLabel = isFirstPeriod && period.partialPosition === 'start';
+                    const labelOnSecondRow = showEffectiveLabel && shouldLabelBeOnSecondRow(inactivePercentage);
+
+                    return (
+                      <>
+                        <div className="relative h-1 rounded bg-gray-200 mt-2">
+                          {showEffectiveLabel && (
+                            <div
+                              className="absolute top-0 w-0.5 h-2 bg-amber-500 -translate-y-0.5"
+                              style={{ left: `${inactivePercentage}%` }}
+                            ></div>
+                          )}
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500 relative">
+                          <span>{format(period.periodStart, 'MMM d')}</span>
+                          {showEffectiveLabel && !labelOnSecondRow && (
+                            <span
+                              className="absolute text-amber-600 font-medium"
+                              style={{ left: `${inactivePercentage}%`, transform: 'translateX(-50%)' }}
+                            >
+                              Started
+                            </span>
+                          )}
+                          <span>{format(period.periodEnd, 'MMM d, yyyy')}</span>
+                        </div>
+                        {labelOnSecondRow && (
+                          <div className="relative text-xs h-4">
+                            <span
+                              className="absolute text-amber-600 font-medium whitespace-nowrap"
+                              style={{ left: `${inactivePercentage}%`, transform: 'translateX(-50%)' }}
+                            >
+                              Started
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -423,26 +468,45 @@ export function Timeline({
                   </div>
 
                   {/* Date timeline bar */}
-                  <div className="relative h-1 rounded bg-gray-200 mt-2">
-                    {isFirstPeriod && period.partialPosition === 'start' && (
-                      <div
-                        className="absolute top-0 w-0.5 h-2 bg-blue-500 -translate-y-0.5"
-                        style={{ left: `${unaffectedPercentage}%` }}
-                      ></div>
-                    )}
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500 relative">
-                    <span>{format(period.periodStart, 'MMM d')}</span>
-                    {isFirstPeriod && period.partialPosition === 'start' && (
-                      <span
-                        className="absolute text-blue-600 font-medium"
-                        style={{ left: `${unaffectedPercentage}%`, transform: 'translateX(-50%)' }}
-                      >
-                        Effective
-                      </span>
-                    )}
-                    <span>{format(period.periodEnd, 'MMM d, yyyy')}</span>
-                  </div>
+                  {(() => {
+                    const showEffectiveLabel = isFirstPeriod && period.partialPosition === 'start';
+                    const labelOnSecondRow = showEffectiveLabel && shouldLabelBeOnSecondRow(unaffectedPercentage);
+
+                    return (
+                      <>
+                        <div className="relative h-1 rounded bg-gray-200 mt-2">
+                          {showEffectiveLabel && (
+                            <div
+                              className="absolute top-0 w-0.5 h-2 bg-blue-500 -translate-y-0.5"
+                              style={{ left: `${unaffectedPercentage}%` }}
+                            ></div>
+                          )}
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500 relative">
+                          <span>{format(period.periodStart, 'MMM d')}</span>
+                          {showEffectiveLabel && !labelOnSecondRow && (
+                            <span
+                              className="absolute text-blue-600 font-medium"
+                              style={{ left: `${unaffectedPercentage}%`, transform: 'translateX(-50%)' }}
+                            >
+                              Effective
+                            </span>
+                          )}
+                          <span>{format(period.periodEnd, 'MMM d, yyyy')}</span>
+                        </div>
+                        {labelOnSecondRow && (
+                          <div className="relative text-xs h-4">
+                            <span
+                              className="absolute text-blue-600 font-medium whitespace-nowrap"
+                              style={{ left: `${unaffectedPercentage}%`, transform: 'translateX(-50%)' }}
+                            >
+                              Effective
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             );
