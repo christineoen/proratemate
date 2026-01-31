@@ -26,7 +26,7 @@ export function MultiPeriodTimeline({
               ? 'bg-green-100 text-green-700'
               : 'bg-purple-100 text-purple-700'
           }`}>
-            {isUpgrade ? 'Upgrade' : 'Downgrade'}
+            {isUpgrade ? 'Plan Upgrade' : 'Plan Downgrade'}
           </div>
         </div>
         <p className="text-sm text-gray-500">
@@ -60,27 +60,17 @@ export function MultiPeriodTimeline({
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex gap-4 mb-4">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-amber-500"></div>
-          <span className="text-sm text-gray-600">{oldPlan.name} ({formatCurrency(oldPlan.price)}/period)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className={`w-4 h-4 rounded ${isUpgrade ? 'bg-green-500' : 'bg-purple-500'}`}></div>
-          <span className="text-sm text-gray-600">{newPlan.name} ({formatCurrency(newPlan.price)}/period)</span>
-        </div>
-      </div>
-
-      {/* Period bars */}
+      {/* Period cards */}
       <div className="space-y-4">
-        {periods.map((period) => {
-          const usedPercentage = (period.daysAffected / period.daysInPeriod) * 100;
+        {periods.map((period, index) => {
+          const affectedPercentage = (period.daysAffected / period.daysInPeriod) * 100;
+          const unaffectedPercentage = 100 - affectedPercentage;
+          const isFirstPeriod = index === 0;
 
           return (
             <div key={period.periodNumber} className="border border-gray-200 rounded-lg p-4">
               {/* Period header */}
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900">
                     Period {period.periodNumber}
@@ -91,61 +81,80 @@ export function MultiPeriodTimeline({
                     </span>
                   )}
                 </div>
-                <span className="text-sm text-gray-500">
-                  {format(period.periodStart, 'MMM d')} - {format(period.periodEnd, 'MMM d, yyyy')}
-                </span>
+                <div className={`text-sm font-medium ${period.netAdjustment >= 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                  {period.netAdjustment >= 0 ? '' : '-'}{formatCurrency(Math.abs(period.netAdjustment))}
+                  <span className="text-gray-500 font-normal ml-1">
+                    {period.netAdjustment >= 0 ? 'due' : 'credit'}
+                  </span>
+                </div>
               </div>
 
-              {/* Timeline bar */}
-              <div className="h-8 rounded-lg overflow-hidden flex bg-gray-100 mb-3">
-                {/* Render unaffected portion first if partialPosition is 'start' (first period) */}
-                {period.partialPosition === 'start' && (
-                  <div
-                    className="bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-500"
-                    style={{ width: `${100 - usedPercentage}%` }}
-                  >
-                    {100 - usedPercentage > 20 && 'Not affected'}
+              {/* Combined credit/charge line */}
+              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200 mb-3">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span className="text-sm text-green-700">{formatCurrency(period.creditFromOldPlan)}</span>
+                    <span className="text-xs text-gray-400">credit</span>
                   </div>
-                )}
-                {/* Affected portion (colored bar) */}
-                {period.daysAffected > 0 && (
-                  <div
-                    className={`flex items-center justify-center text-xs font-medium text-white ${
-                      isUpgrade
-                        ? 'bg-gradient-to-r from-amber-400 via-green-400 to-green-500'
-                        : 'bg-gradient-to-r from-amber-400 via-purple-400 to-purple-500'
-                    }`}
-                    style={{ width: `${usedPercentage}%` }}
-                  >
-                    {usedPercentage > 20 && `${period.daysAffected} days`}
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                    <span className="text-sm text-amber-700">{formatCurrency(period.chargeForNewPlan)}</span>
+                    <span className="text-xs text-gray-400">charge</span>
                   </div>
-                )}
-                {/* Render unaffected portion last if partialPosition is 'end' (last period) */}
-                {period.partialPosition === 'end' && (
-                  <div
-                    className="bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-500"
-                    style={{ width: `${100 - usedPercentage}%` }}
-                  >
-                    {100 - usedPercentage > 20 && 'Not affected'}
-                  </div>
-                )}
+                </div>
+                <span className="text-xs text-gray-400">{period.daysAffected} days affected</span>
               </div>
 
-              {/* Period details */}
-              <div className="grid grid-cols-3 gap-4 text-center text-sm">
-                <div>
-                  <div className="text-amber-600 font-medium">-{formatCurrency(period.creditFromOldPlan)}</div>
-                  <div className="text-xs text-gray-500">Credit ({oldPlan.name})</div>
-                </div>
-                <div>
-                  <div className="text-blue-600 font-medium">+{formatCurrency(period.chargeForNewPlan)}</div>
-                  <div className="text-xs text-gray-500">Charge ({newPlan.name})</div>
-                </div>
-                <div>
-                  <div className={`font-medium ${period.netAdjustment >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {period.netAdjustment >= 0 ? '+' : ''}{formatCurrency(period.netAdjustment)}
+              {/* Stacked timeline bars */}
+              <div className="space-y-1">
+                {/* Credit bar */}
+                <div className="h-5 rounded overflow-hidden bg-gray-100">
+                  {period.partialPosition === 'start' && unaffectedPercentage > 0 && (
+                    <div className="h-full inline-block" style={{ width: `${unaffectedPercentage}%` }}></div>
+                  )}
+                  <div
+                    className="h-full bg-gradient-to-r from-green-400 to-green-500 inline-flex items-center justify-center text-xs font-medium text-white"
+                    style={{ width: `${affectedPercentage}%` }}
+                  >
+                    {affectedPercentage > 30 && `${oldPlan.name} credit`}
                   </div>
-                  <div className="text-xs text-gray-500">Net</div>
+                </div>
+
+                {/* Charge bar */}
+                <div className="h-5 rounded overflow-hidden bg-gray-100">
+                  {period.partialPosition === 'start' && unaffectedPercentage > 0 && (
+                    <div className="h-full inline-block" style={{ width: `${unaffectedPercentage}%` }}></div>
+                  )}
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500 inline-flex items-center justify-center text-xs font-medium text-white"
+                    style={{ width: `${affectedPercentage}%` }}
+                  >
+                    {affectedPercentage > 30 && `${newPlan.name} charge`}
+                  </div>
+                </div>
+
+                {/* Date timeline bar */}
+                <div className="relative h-1 rounded bg-gray-200 mt-2">
+                  {/* Effective marker for first period */}
+                  {isFirstPeriod && period.partialPosition === 'start' && (
+                    <div
+                      className="absolute top-0 w-0.5 h-2 bg-blue-500 -translate-y-0.5"
+                      style={{ left: `${unaffectedPercentage}%` }}
+                    ></div>
+                  )}
+                </div>
+                <div className="flex justify-between text-xs text-gray-500 relative">
+                  <span>{format(period.periodStart, 'MMM d')}</span>
+                  {isFirstPeriod && period.partialPosition === 'start' && (
+                    <span
+                      className="absolute text-blue-600 font-medium"
+                      style={{ left: `${unaffectedPercentage}%`, transform: 'translateX(-50%)' }}
+                    >
+                      Effective
+                    </span>
+                  )}
+                  <span>{format(period.periodEnd, 'MMM d, yyyy')}</span>
                 </div>
               </div>
             </div>
@@ -156,22 +165,22 @@ export function MultiPeriodTimeline({
       {/* Totals summary */}
       <div className="mt-6 pt-4 border-t border-gray-200">
         <div className="grid grid-cols-3 gap-4">
-          <div className="text-center p-3 bg-amber-50 rounded-lg">
-            <div className="text-lg font-bold text-amber-700">{formatCurrency(totalCredits)}</div>
-            <div className="text-xs text-amber-600">Total Credits from {oldPlan.name}</div>
+          <div className="text-center p-3 bg-green-50 rounded-lg">
+            <div className="text-lg font-bold text-green-700">{formatCurrency(totalCredits)}</div>
+            <div className="text-xs text-green-600">Total Credits</div>
           </div>
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
-            <div className="text-lg font-bold text-blue-700">{formatCurrency(totalCharges)}</div>
-            <div className="text-xs text-blue-600">Total Charges for {newPlan.name}</div>
+          <div className="text-center p-3 bg-amber-50 rounded-lg">
+            <div className="text-lg font-bold text-amber-700">{formatCurrency(totalCharges)}</div>
+            <div className="text-xs text-amber-600">Total Charges</div>
           </div>
           <div className={`text-center p-3 rounded-lg ${
-            netAdjustment >= 0 ? 'bg-green-50' : 'bg-red-50'
+            netAdjustment >= 0 ? 'bg-amber-50' : 'bg-green-50'
           }`}>
-            <div className={`text-lg font-bold ${netAdjustment >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+            <div className={`text-lg font-bold ${netAdjustment >= 0 ? 'text-amber-700' : 'text-green-700'}`}>
               {formatCurrency(Math.abs(netAdjustment))}
             </div>
-            <div className={`text-xs ${netAdjustment >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {netAdjustment >= 0 ? 'Total Amount Due' : 'Total Refund Due'}
+            <div className={`text-xs ${netAdjustment >= 0 ? 'text-amber-600' : 'text-green-600'}`}>
+              {netAdjustment >= 0 ? 'Amount Due' : 'Credit Due'}
             </div>
           </div>
         </div>

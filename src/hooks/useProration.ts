@@ -35,8 +35,8 @@ interface UseProrationState {
   billingAnchorDay: number;
 }
 
-const DEFAULT_CURRENT_PLAN: Plan = { name: 'Basic', price: 29, cycle: 'monthly' };
-const DEFAULT_NEW_PLAN: Plan = { name: 'Pro', price: 99, cycle: 'monthly' };
+const DEFAULT_CURRENT_PLAN: Plan = { name: 'Basic', price: 50, cycle: 'monthly' };
+const DEFAULT_NEW_PLAN: Plan = { name: 'Pro', price: 200, cycle: 'monthly' };
 
 function detectScenario(showPreviousPlan: boolean, showNextPlan: boolean): ProrationScenario {
   if (showPreviousPlan && showNextPlan) return 'planChange';

@@ -186,20 +186,29 @@ export function TimelineBar({
           </div>
         </div>
 
-        {/* Timeline Bar */}
-        <div className="relative mb-6">
-          <div className="h-8 rounded-lg overflow-hidden flex">
-            <div
-              className="bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center text-xs font-medium text-white"
-              style={{ width: `${activePercentage}%` }}
-            >
-              {activePercentage > 15 && `${serviceEndResult.daysUsed} days`}
+        {/* Timeline Bars - Stacked */}
+        <div className="relative mb-6 space-y-2">
+          {/* Used portion bar */}
+          <div className="relative">
+            <div className="h-6 rounded-lg overflow-hidden bg-gray-100">
+              <div
+                className="h-full bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center text-xs font-medium text-white"
+                style={{ width: `${activePercentage}%` }}
+              >
+                {activePercentage > 20 && `${serviceEndResult.daysUsed} days used`}
+              </div>
             </div>
-            <div
-              className="bg-gradient-to-r from-green-400 to-green-500 flex items-center justify-center text-xs font-medium text-white"
-              style={{ width: `${canceledPercentage}%` }}
-            >
-              {canceledPercentage > 15 && `${serviceEndResult.daysRemaining} days`}
+          </div>
+
+          {/* Credit portion bar */}
+          <div className="relative">
+            <div className="h-6 rounded-lg overflow-hidden bg-gray-100 flex justify-end">
+              <div
+                className="h-full bg-gradient-to-r from-green-400 to-green-500 flex items-center justify-center text-xs font-medium text-white"
+                style={{ width: `${canceledPercentage}%` }}
+              >
+                {canceledPercentage > 20 && `${serviceEndResult.daysRemaining} days credit`}
+              </div>
             </div>
           </div>
 
@@ -209,13 +218,8 @@ export function TimelineBar({
               <span className="font-medium">Period Start</span>
               <span>{format(periodStart, 'MMM d, yyyy')}</span>
             </div>
-            <div
-              className="flex flex-col items-center absolute"
-              style={{ left: `${activePercentage}%`, transform: 'translateX(-50%)' }}
-            >
-              <div className="w-0.5 h-3 bg-red-500 -mt-3 mb-1"></div>
-              <span className="font-medium text-red-600">Canceled</span>
-              <span>{format(changeDate, 'MMM d, yyyy')}</span>
+            <div className="flex flex-col items-center">
+              <span className="font-medium text-red-600">Canceled {format(changeDate, 'MMM d')}</span>
             </div>
             <div className="flex flex-col items-end">
               <span className="font-medium">Period End</span>
@@ -247,8 +251,26 @@ export function TimelineBar({
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Service Start Timeline</h3>
 
-        {/* Plan Line */}
-        <div className="mb-4">
+        {/* Plan Lines */}
+        <div className="mb-4 space-y-2">
+          {/* Inactive Period Line */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+              <div>
+                <span className="font-medium text-gray-600">Not Active</span>
+                <span className="text-gray-500 text-sm ml-2">
+                  {format(periodStart, 'MMM d')} - {format(changeDate, 'MMM d, yyyy')}
+                </span>
+                <span className="text-gray-400 text-sm ml-2">({serviceStartResult.daysInactive} days)</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-gray-500">No charge</div>
+            </div>
+          </div>
+
+          {/* Active Period Line */}
           <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-amber-500"></div>
@@ -267,20 +289,29 @@ export function TimelineBar({
           </div>
         </div>
 
-        {/* Timeline Bar */}
-        <div className="relative mb-6">
-          <div className="h-8 rounded-lg overflow-hidden flex">
-            <div
-              className="bg-gradient-to-r from-gray-300 to-gray-400 flex items-center justify-center text-xs font-medium text-white"
-              style={{ width: `${inactivePercentage}%` }}
-            >
-              {inactivePercentage > 15 && `${serviceStartResult.daysInactive} days`}
+        {/* Timeline Bars - Stacked */}
+        <div className="relative mb-6 space-y-2">
+          {/* Inactive portion bar */}
+          <div className="relative">
+            <div className="h-6 rounded-lg overflow-hidden bg-gray-100">
+              <div
+                className="h-full bg-gradient-to-r from-gray-300 to-gray-400 flex items-center justify-center text-xs font-medium text-white"
+                style={{ width: `${inactivePercentage}%` }}
+              >
+                {inactivePercentage > 20 && `${serviceStartResult.daysInactive} days inactive`}
+              </div>
             </div>
-            <div
-              className="bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center text-xs font-medium text-white"
-              style={{ width: `${activePercentage}%` }}
-            >
-              {activePercentage > 15 && `${serviceStartResult.daysActive} days`}
+          </div>
+
+          {/* Charge portion bar */}
+          <div className="relative">
+            <div className="h-6 rounded-lg overflow-hidden bg-gray-100 flex justify-end">
+              <div
+                className="h-full bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center text-xs font-medium text-white"
+                style={{ width: `${activePercentage}%` }}
+              >
+                {activePercentage > 20 && `${serviceStartResult.daysActive} days charged`}
+              </div>
             </div>
           </div>
 
@@ -290,13 +321,8 @@ export function TimelineBar({
               <span className="font-medium">Period Start</span>
               <span>{format(periodStart, 'MMM d, yyyy')}</span>
             </div>
-            <div
-              className="flex flex-col items-center absolute"
-              style={{ left: `${inactivePercentage}%`, transform: 'translateX(-50%)' }}
-            >
-              <div className="w-0.5 h-3 bg-amber-500 -mt-3 mb-1"></div>
-              <span className="font-medium text-amber-600">Started</span>
-              <span>{format(changeDate, 'MMM d, yyyy')}</span>
+            <div className="flex flex-col items-center">
+              <span className="font-medium text-amber-600">Started {format(changeDate, 'MMM d')}</span>
             </div>
             <div className="flex flex-col items-end">
               <span className="font-medium">Period End</span>
@@ -370,20 +396,29 @@ export function TimelineBar({
           </div>
         </div>
 
-        {/* Timeline Bar */}
-        <div className="relative mb-6">
-          <div className="h-8 rounded-lg overflow-hidden flex">
-            <div
-              className="bg-gradient-to-r from-green-400 to-green-500 flex items-center justify-center text-xs font-medium text-white"
-              style={{ width: `${oldPlanPercentage}%` }}
-            >
-              {oldPlanPercentage > 15 && `${daysOnOldPlan} days`}
+        {/* Timeline Bars - Stacked */}
+        <div className="relative mb-6 space-y-2">
+          {/* Credit portion bar (old plan) */}
+          <div className="relative">
+            <div className="h-6 rounded-lg overflow-hidden bg-gray-100">
+              <div
+                className="h-full bg-gradient-to-r from-green-400 to-green-500 flex items-center justify-center text-xs font-medium text-white"
+                style={{ width: `${oldPlanPercentage}%` }}
+              >
+                {oldPlanPercentage > 20 && `${daysOnOldPlan} days credit`}
+              </div>
             </div>
-            <div
-              className="bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center text-xs font-medium text-white"
-              style={{ width: `${newPlanPercentage}%` }}
-            >
-              {newPlanPercentage > 15 && `${daysOnNewPlan} days`}
+          </div>
+
+          {/* Charge portion bar (new plan) */}
+          <div className="relative">
+            <div className="h-6 rounded-lg overflow-hidden bg-gray-100 flex justify-end">
+              <div
+                className="h-full bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center text-xs font-medium text-white"
+                style={{ width: `${newPlanPercentage}%` }}
+              >
+                {newPlanPercentage > 20 && `${daysOnNewPlan} days charge`}
+              </div>
             </div>
           </div>
 
@@ -393,15 +428,10 @@ export function TimelineBar({
               <span className="font-medium">Period Start</span>
               <span>{format(periodStart, 'MMM d, yyyy')}</span>
             </div>
-            <div
-              className="flex flex-col items-center absolute"
-              style={{ left: `${oldPlanPercentage}%`, transform: 'translateX(-50%)' }}
-            >
-              <div className="w-0.5 h-3 bg-blue-500 -mt-3 mb-1"></div>
+            <div className="flex flex-col items-center">
               <span className="font-medium text-blue-600">
-                {planChangeResult.isUpgrade ? 'Upgrade' : 'Downgrade'}
+                {planChangeResult.isUpgrade ? 'Upgrade' : 'Downgrade'} {format(changeDate, 'MMM d')}
               </span>
-              <span>{format(changeDate, 'MMM d, yyyy')}</span>
             </div>
             <div className="flex flex-col items-end">
               <span className="font-medium">Period End</span>
